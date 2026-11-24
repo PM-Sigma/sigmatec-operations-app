@@ -33,6 +33,7 @@ import { SigmaProviders } from '@/lib/query';
 import { getSupabase, sbWrite } from '@/lib/supabase';
 import { track } from '@/lib/track';
 import { sigma, useCurrentUser, useSigmaEvent } from '@/bridge';
+import { stockOn } from '@/lib/stockSwitch';
 import { canSetMinQty, orderStripRows, STRIP_STAGES, type OrderLike, type StripRow } from '@/lib/orderStrip';
 
 /** note.icon (round 5 L1, lucide names) → the actual component the row's Tag draws. */
@@ -217,9 +218,10 @@ export function InventoryStripPanel() {
   const { name: user, isViewer } = useCurrentUser();
   const [minOpen, setMinOpen] = React.useState(false);
   const mayEdit = canSetMinQty(user, isViewer);
+  const enforced = stockOn(); // off → no red lines, so no min-qty editor either
 
   React.useEffect(() => {
-    const onOpen = () => setMinOpen(true);
+    const onOpen = () => { if (stockOn()) setMinOpen(true); };
     window.addEventListener(MINQTY_OPEN_EVENT, onOpen);
     return () => window.removeEventListener(MINQTY_OPEN_EVENT, onOpen);
   }, []);
@@ -227,7 +229,7 @@ export function InventoryStripPanel() {
   return (
     <div>
       <OrdersStrip />
-      {mayEdit && (
+      {mayEdit && enforced && (
         <BubbleButton
           variant="tonal" size="sm" className="mb-2" data-testid="minqty-open"
           icon={<SlidersHorizontal className="size-4" aria-hidden />}

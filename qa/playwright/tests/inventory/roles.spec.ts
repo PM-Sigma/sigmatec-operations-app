@@ -47,6 +47,7 @@ test('F23b viewer: the certs tab hides new/send/reissue/cancel behind isViewer()
 test('F23e viewer: the ⋯ menu on a cert row offers הצגה but never שליחה/הפקה מתוקנת/ביטול', async ({ page }, ti) => {
   await bootInv(page, ti, 'צפייה', d);
   await d.openTab(page, 'certs');
+  await d.certRange(page, 'all'); // the tab opens on the current month (chip + query agree); fixtures are older
   // cert 1041 — an ACTIVE cert (not cancelled), so a writer would see all four rows; the ⋯
   // trigger itself has no isViewer gate (view-only recipients see the same button).
   await page.locator('[data-testid="inv-cert-more-1041"]').click();

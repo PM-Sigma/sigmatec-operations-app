@@ -1,0 +1,23 @@
+{
+  "kibbutzim": [
+    { "name": "גבים", "ems_site_ids": ["site-gvim"] },
+    { "name": "גניגר", "ems_site_ids": ["site-ginegar"] },
+    { "name": "דגניה א", "ems_site_ids": ["site-shared"] },
+    { "name": "דגניה ב", "ems_site_ids": ["site-shared"] }
+  ],
+  "users": [
+    { "firstName": "דנה", "lastName": "כהן", "email": "Dana@Gvim.example", "phone": "050-111", "role": "site_manager", "status": "active", "sites": [{ "id": "site-gvim" }] },
+    { "firstName": "רון", "lastName": "לוי", "email": "ron@ops.example", "phone": "", "role": "operations_manager", "status": "active", "sites": [{ "id": "site-gvim" }, { "id": "site-ginegar" }] },
+    { "firstName": "טכנאי", "lastName": "לא מנהל", "email": "tech@x.example", "role": "technician", "status": "active", "sites": [{ "id": "site-gvim" }] },
+    { "firstName": "לא", "lastName": "פעיל", "email": "off@x.example", "role": "site_manager", "status": "inactive", "sites": [{ "id": "site-gvim" }] },
+    { "firstName": "בלי", "lastName": "מייל", "email": "", "role": "site_manager", "status": "active", "sites": [{ "id": "site-gvim" }] },
+    { "firstName": "שני", "lastName": "אתרים", "email": "shared@x.example", "role": "site_manager", "status": "active", "sites": [{ "id": "site-shared" }] },
+    { "firstName": "בלי", "lastName": "קיבוץ", "email": "nokib@x.example", "role": "site_manager", "status": "active", "sites": [{ "id": "site-unknown" }] }
+  ],
+  "existing": [
+    { "id": "1", "kibbutz": "גבים", "name": "דנה כהן", "role": "site_manager", "email": "dana@gvim.example", "phone": "050-000", "source": "ems", "active": true },
+    { "id": "2", "kibbutz": "גבים", "name": "ישן", "role": "site_manager", "email": "gone@x.example", "phone": "", "source": "ems", "active": true },
+    { "id": "3", "kibbutz": "גניגר", "name": "ידני", "role": "", "email": "RON@ops.example", "phone": "", "source": "manual", "active": true },
+    { "id": "4", "kibbutz": "גבים", "name": "רון לוי", "role": "operations_manager", "email": "ron@ops.example", "phone": "", "source": "ems", "active": false }
+  ]
+}

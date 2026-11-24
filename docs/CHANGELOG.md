@@ -45,6 +45,29 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 - **Needs MAIN:** deploy edge function `push-send` (new files orderAuth.js, field.ts, usageNarrative.ts). **No SQL file in this round** (`stock_enforced` row comes from the certs/inventory change). The sent-from-client `pushNotify` still works only while the 180-min pass is valid.
 - **Rollback:** revert the commit + redeploy the previous push-send.
 - **Not done (other agents' files):** UTC-"today" in js/src/09-visits.js:~284, app/src/islands/InventoryCert.tsx, InventoryCerts.tsx, lib/inventoryApi.ts.
+/^>>>>>>> fix/r1-certs/d
+## 2026-11-23 - Delivery certificates fixed, EMS contacts sync, inventory "just works" switch
+- **Why:** certificate "שליחה" opened an empty panel; the send panel lost WhatsApp/add-contact; the signature drifted on phones;
+  nothing recorded that a cert was sent; contacts were a one-off seed; and the owner's stock/items are not accurate yet, so the
+  red low-stock banner and blocks must go until the stock count.
+- **Certs (InventoryCert.tsx / InventoryCerts.tsx / certSend.ts):** viewer "שליחה" fetches the full row by id (kibbutz, number);
+  the send panel renders `wa.me` links per contact (`waLink`, 0xx -> 972), always offers "הוספת איש קשר", shows Hebrew roles
+  (מנהל אתר / מנהל תפעול); signature pad maps pointer by `canvas.width / rect.width` (`canvasPoint`, not devicePixelRatio);
+  cancel asks ConfirmSheet; `sent_at` + `sent_to` stamped on mail/WhatsApp tap (`markCertSent`, best-effort) and shown as
+  "נשלחה ✓ date" / "לא נשלחה" (hidden until the column exists); "חודש נוכחי" chip is selected on open (was "הכל" on a month query);
+  React cancel/reissue clear the legacy `_certIssuedFor` cache.
+- **EMS contacts:** `scripts/ems-contacts-sync.mjs` (office PC, same .env + ems-auth path as ems-cache-refresh): active EMS users with
+  role site_manager / operations_manager -> kibbutz via `kibbutzim.ems_site_ids` -> `site_contacts` (`source='ems'`); vanished ones
+  get `active=false`; manual rows are never touched. Refuses to run if the EMS account has a `currentSite` (GET /users is scoped),
+  and refuses deactivations if the crawl found under half of the stored rows. Pure `contactSyncPlan` + fixture: `test-contacts-sync.mjs`.
+- **Inventory switch:** settings row `stock_enforced` (false). Off: `lowStockReport` empty (React + legacy banner/company-task line,
+  legacy now delegates to `SigmaInv`), "מלאי נמוך" tile / "נמוך" tags / red negatives hidden, min-qty editor hidden, off-catalog
+  order line = warning instead of block. Client reads it via `sigma.stockEnforced()` (settings snapshot). DB trigger function
+  `inventory_alert_on_movement` returns early when off (also in `inventory_pool_v2.sql`, so re-running it cannot re-arm alerts).
+- **Not applied (needs MAIN), in this order:** `db/delivery_certs_sent.sql`; `db/site_contacts_sync.sql` (backup table + de-dup + unique
+  key); `db/inventory_stock_enforced.sql`; then the contacts sync `node scripts/ems-contacts-sync.mjs --dry-run`, then without the flag.
+  push-send must also read `stock_enforced` (inventoryAlert / inventoryDigest -> `skipped`) - not edited here.
+- **Rollback:** revert the commit; SQL rollbacks are in each file's header (drop columns / unique index / delete the settings row).
 
 ## 2026-11-23 - Attendance alerts: 4 fixes (אביאם/ניתאי "missing day" noise)
 - **Why:** the missing-day alerts felt buggy: a legacy popup with no holiday check, a morning push that stacked a growing list

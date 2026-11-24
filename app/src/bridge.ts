@@ -304,6 +304,8 @@ export interface Sigma {
    * the fallback for the "חברה" group until the `internal_tasks` rows exist (§7m R3).
    */
   companyTasks?(): { orders?: string[]; info?: string[]; guidelines?: string[] } | null;
+  /** The inventory switch (settings `stock_enforced`): false = no low-stock alerts / blocks until the stock count. */
+  stockEnforced?(): boolean;
   /** ✉️ הודעה לעובד — the `messages` table (js/src/17-messages.js). */
   staffSendMessage?(toPerson: string, text: string): Promise<void>;
   /** The people a message can be left for. */

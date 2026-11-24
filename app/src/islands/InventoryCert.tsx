@@ -15,12 +15,12 @@ import { SigmaProviders } from '@/lib/query';
 import { sigma, useCurrentUser } from '@/bridge';
 import {
   certPrefill, certCollect, certIssueErrors, certDocHtml, certItemsForView,
-  certSendPlan, certMailto, certViewUrl, activeProducts,
+  certSendPlan, certMailto, certViewUrl, activeProducts, certRoleLabel, waLink, canvasPoint,
   type CertPrefillPre, type CertPrefillResult, type CertItem, type CertContact,
 } from '@/lib/inventory';
 import { CERT_LOGO } from '@/lib/certLogo';
 import {
-  useInventory, issueCert, cancelCert, fetchContacts, addContact, kibbutzDetails, fetchCertById,
+  useInventory, issueCert, cancelCert, fetchContacts, addContact, kibbutzDetails, fetchCertById, markCertSent,
   type CertRow,
 } from '@/lib/inventoryApi';
 import { toastFailure } from '@/lib/pending';
@@ -162,9 +162,8 @@ function CertIsland() {
 
   // ── signature canvas ──────────────────────────────────────────────────────
   function canvasPos(e: React.PointerEvent<HTMLCanvasElement>) {
-    const rect = (e.target as HTMLCanvasElement).getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
-    return { x: (e.clientX - rect.left) * dpr, y: (e.clientY - rect.top) * dpr };
+    const c = e.currentTarget;
+    return canvasPoint(e.clientX, e.clientY, c.getBoundingClientRect(), c.width, c.height);
   }
   function onPointerDown(e: React.PointerEvent<HTMLCanvasElement>) {
     drawingRef.current = true;
@@ -246,14 +245,13 @@ function CertIsland() {
     try { navigator.clipboard?.writeText(certViewUrl(id)); toast.success('הקישור הועתק'); }
     catch { toast.error('העתקה נכשלה'); }
   }
+  const sendText = () => 'שלום,\nמצורף קישור לתעודת המשלוח: ' + certViewUrl(sendCert?.id || '');
   function emailSelected() {
     if (!sendCert || !selectedEmails.length) return;
     const subject = 'תעודת משלוח מס\' ' + (sendCert as any).cert_number;
-    const body = 'שלום,\nמצורף קישור לתעודת המשלוח: ' + certViewUrl(sendCert.id);
-    window.location.href = certMailto(selectedEmails, subject, body);
+    void markCertSent(sendCert.id, selectedEmails.join(', '));
+    window.location.href = certMailto(selectedEmails, subject, sendText());
   }
-
-  const plan = certSendPlan(contacts);
 
   return (
     <>
@@ -385,7 +383,8 @@ function CertIsland() {
             <SheetFooter>
               <button type="button" data-testid="cert-viewer-print" onClick={printCert} className="min-h-[44px] flex-1 rounded-xl border border-border font-bold">הדפסה / PDF</button>
               {!user.isViewer && viewId && (
-                <button type="button" onClick={() => { const row = { id: viewId } as CertRow; void openCertSend(row); }}
+                <button type="button" data-testid="cert-viewer-send"
+                  onClick={() => { void fetchCertById(viewId).then(row => { if (row) void openCertSend(row); else toast.error('לא ניתן לפתוח את השליחה'); }).catch(() => toast.error('לא ניתן לפתוח את השליחה')); }}
                   className="min-h-[44px] flex-1 rounded-xl border border-border font-bold">
                   שליחה
                 </button>
@@ -410,10 +409,17 @@ function CertIsland() {
                   <input type="checkbox" checked={selectedEmails.includes(String(c.email))}
                     onChange={e => setSelectedEmails(s => e.target.checked ? [...s, String(c.email)] : s.filter(x => x !== c.email))} />
                 )}
-                <span className="min-w-0 flex-1 truncate text-[14px]">{c.name} {c.role ? `· ${c.role}` : ''} {c.email ? `· ${c.email}` : ''} {c.phone ? `· ${c.phone}` : ''}</span>
+                <span className="min-w-0 flex-1 truncate text-[14px]">{c.name} {c.role ? `· ${certRoleLabel(c.role)}` : ''} {c.email ? `· ${c.email}` : ''} {c.phone ? `· ${c.phone}` : ''}</span>
+                {waLink(c.phone) && (
+                  <a data-testid={`cert-wa-${i}`} href={waLink(c.phone, sendText())} target="_blank" rel="noreferrer"
+                    onClick={() => { if (sendCert) void markCertSent(sendCert.id, String(c.name || c.phone)); }}
+                    className="flex min-h-[40px] items-center rounded-lg border border-border px-2 text-[13px] font-bold">
+                    וואטסאפ
+                  </a>
+                )}
               </div>
             ))}
-            {plan.needsContact && !newContact && (
+            {!newContact && (
               <button type="button" data-testid="cert-add-contact" onClick={() => setNewContact({ name: '', email: '', phone: '' })}
                 className="min-h-[44px] rounded-xl border border-border font-bold">
                 הוספת איש קשר

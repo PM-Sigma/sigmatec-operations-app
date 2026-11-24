@@ -24,6 +24,10 @@ declare
   v_min numeric;
   v_pool numeric;
 begin
+  -- the stock_enforced switch (db/inventory_stock_enforced.sql): off → inert, so re-running this file can't re-arm alerts
+  if coalesce((select s.value = 'false'::jsonb from settings s where s.key = 'stock_enforced'), false) then
+    return new;
+  end if;
   begin
     insert into inventory_alerts (kind, product, qty, from_location, to_location, reason, ref_id, actor)
     values ('movement', new.product, new.quantity, new.from_location, new.to_location, new.reason, new.ref_id, new.created_by);

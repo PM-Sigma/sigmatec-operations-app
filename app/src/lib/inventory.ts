@@ -325,8 +325,17 @@ export const METER_RULES = [
 ] as const;
 export interface LowMeter { label: string; match: string; total: number; min: number; found: boolean }
 
-/** lowStockReport(): which meter rules are under their red line, company-wide (over the pool). */
-export function lowStockReport(pool: Record<string, number> | null | undefined): { meters: LowMeter[] } {
+/** stockEnforced(): the ONE switch (settings row `stock_enforced`, db/inventory_stock_enforced.sql). Off = the
+ * inventory "just works" until the stock count: no low-stock alerts or red lines, no catalog block. A missing row
+ * means ON (the pre-switch behaviour). */
+export function stockEnforced(settings: Record<string, unknown> | null | undefined): boolean {
+  const v = settings ? settings.stock_enforced : undefined;
+  return !(v === false || v === 'false' || v === 0);
+}
+
+/** lowStockReport(): which meter rules are under their red line, company-wide (over the pool). Empty when the switch is off. */
+export function lowStockReport(pool: Record<string, number> | null | undefined, enforced = true): { meters: LowMeter[] } {
+  if (!enforced) return { meters: [] };
   const meters = METER_RULES.map(rule => {
     let total = 0, found = false;
     for (const [p, q] of Object.entries(pool || {})) {
@@ -607,11 +616,11 @@ export interface OrderDraft {
   createdBy?: string; items: Array<DraftItem>; importedReqIds?: string[];
 }
 export interface SavePlan {
-  errors: string[]; unknown: string[]; body: Record<string, unknown>; delivery: boolean; fulfil: string[];
+  errors: string[]; warnings?: string[]; unknown: string[]; body: Record<string, unknown>; delivery: boolean; fulfil: string[];
   reqLinks: Array<{ id: string; status: string; linkedOrderId: string }>;
   learn?: { rawText: string; items: Array<{ name: string; qty: number }> }; pushPending: boolean;
 }
-export interface SaveCtx { catalog: ReadonlyArray<string>; movements: ReadonlyArray<Partial<Movement>>; requirements: ReadonlyArray<ReqLike>; me: string }
+export interface SaveCtx { catalog: ReadonlyArray<string>; movements: ReadonlyArray<Partial<Movement>>; requirements: ReadonlyArray<ReqLike>; me: string; enforced?: boolean }
 
 /** orderSavePlan (O16-O19, O27-O28; D6/O18a/O18b fixed): what 💾 שמור הזמנה does. */
 export function orderSavePlan(draft: OrderDraft, ctx: SaveCtx): SavePlan {
@@ -619,7 +628,12 @@ export function orderSavePlan(draft: OrderDraft, ctx: SaveCtx): SavePlan {
   // O27 (ruling: no add-to-catalog): a non-catalog line blocks save; the only recovery is
   // removing it, never adding it.
   const unknown = [...new Set(draft.items.filter(it => it.name && !ctx.catalog.includes(it.name)).map(it => it.name))];
-  if (unknown.length) errors.push('פריטים שלא בקטלוג: ' + unknown.join(', ') + '. אפשר להסיר אותם מההזמנה');
+  const warnings: string[] = [];
+  if (unknown.length) {
+    const msg = 'פריטים שלא בקטלוג: ' + unknown.join(', ') + '. אפשר להסיר אותם מההזמנה';
+    // stock_enforced off: an off-catalog line is a heads-up, never a block
+    if (ctx.enforced === false) warnings.push(msg); else errors.push(msg);
+  }
   if (!draft.items.length) errors.unshift('צריך לפחות פריט אחד');
   const unresolvedChoice = draft.items.find(it => !it.name && it.choose && it.choose.length);
   if (unresolvedChoice) errors.unshift(`יש שורת ספק כוח בלי סוג. בחירה: ${(unresolvedChoice.choose ?? []).join(' או ')}`);
@@ -666,7 +680,7 @@ export function orderSavePlan(draft: OrderDraft, ctx: SaveCtx): SavePlan {
   }
 
   return {
-    errors, unknown, body, delivery, fulfil, reqLinks,
+    errors, ...(warnings.length ? { warnings } : {}), unknown, body, delivery, fulfil, reqLinks,
     learn: draft.raw ? { rawText: draft.raw, items: baseItems } : undefined,
     pushPending: !draft.id,
   };

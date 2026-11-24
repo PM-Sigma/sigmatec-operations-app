@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { certMailto, certSendPlan, isEmail, waNumber } from './certSend';
+import { canvasPoint, certMailto, certRoleLabel, certSendPlan, isEmail, waLink, waNumber } from './certSend';
+import { certSentLabel } from './certDoc';
 
 const ROWS = [
   { name: 'יוסי', role: 'site_manager', email: 'yossi@kibbutz.co.il', phone: '050-123-4567', active: true },
@@ -71,5 +72,30 @@ describe('certMailto', () => {
 
   it('drops anything that is not an address, so a half-typed row cannot poison the link', () => {
     expect(certMailto(['a@b.co', 'nope', ''], 's', 'b').startsWith('mailto:a@b.co?')).toBe(true);
+  });
+});
+
+describe('waLink / certRoleLabel / canvasPoint / certSentLabel', () => {
+  it('waLink turns a local number into wa.me/972…, empty when not dialable', () => {
+    expect(waLink('050-123-4567')).toBe('https://wa.me/972501234567');
+    expect(waLink('+972 52 123 4567', 'hi')).toBe('https://wa.me/972521234567?text=hi');
+    expect(waLink('12')).toBe('');
+  });
+  it('roles read in Hebrew, unknown roles pass through', () => {
+    expect(certRoleLabel('site_manager')).toBe('מנהל אתר');
+    expect(certRoleLabel('operations_manager')).toBe('מנהל תפעול');
+    expect(certRoleLabel('חשב')).toBe('חשב');
+    expect(certRoleLabel(null)).toBe('');
+  });
+  it('canvasPoint scales by bitmap/displayed size (phone: 600px bitmap shown 300px wide, whatever the DPR)', () => {
+    const rect = { x: 10, y: 100, width: 300, height: 110 };
+    expect(canvasPoint(160, 155, rect, 600, 220)).toEqual({ x: 300, y: 110 });
+    expect(canvasPoint(10, 100, rect, 600, 220)).toEqual({ x: 0, y: 0 });
+    expect(canvasPoint(5, 5, { x: 0, y: 0, width: 0, height: 0 }, 600, 220)).toEqual({ x: 5, y: 5 });
+  });
+  it('certSentLabel: sent / not sent / column missing', () => {
+    expect(certSentLabel({ sent_at: '2026-11-23T10:00:00Z' })).toBe('נשלחה ✓ 23/11/2026');
+    expect(certSentLabel({ sent_at: null })).toBe('לא נשלחה');
+    expect(certSentLabel({})).toBeNull();
   });
 });

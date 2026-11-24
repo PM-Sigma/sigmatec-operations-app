@@ -70,3 +70,34 @@ export function certMailto(to: ReadonlyArray<string>, subject: string, body: str
     '?subject=' + encodeURIComponent(String(subject || '')) +
     '&body=' + encodeURIComponent(String(body || ''));
 }
+
+/** Hebrew label for a contact's EMS role; anything else (a manual contact) shows as typed. */
+export const CERT_ROLE_LABEL: Record<string, string> = {
+  site_manager: 'מנהל אתר',
+  operations_manager: 'מנהל תפעול',
+};
+export const certRoleLabel = (role: unknown): string => {
+  const r = String(role ?? '').trim();
+  return CERT_ROLE_LABEL[r] || r;
+};
+
+/** `wa.me` link for an Israeli phone: a leading 0 becomes 972 (wa.me wants the country code). '' when not dialable. */
+export function waLink(phone: unknown, text = ''): string {
+  let d = waNumber(phone);
+  if (!d) return '';
+  if (d.startsWith('0')) d = '972' + d.slice(1);
+  return 'https://wa.me/' + d + (text ? '?text=' + encodeURIComponent(text) : '');
+}
+
+/** Pointer → canvas pixel. The canvas bitmap (width×height attrs) is shown scaled by CSS, so the
+ * factor is bitmap/displayed size — NOT devicePixelRatio (that offset every stroke on phones). */
+export function canvasPoint(
+  clientX: number, clientY: number,
+  rect: { x: number; y: number; width: number; height: number },
+  canvasW: number, canvasH: number,
+): { x: number; y: number } {
+  return {
+    x: (clientX - rect.x) * (canvasW / (rect.width || canvasW)),
+    y: (clientY - rect.y) * (canvasH / (rect.height || canvasH)),
+  };
+}

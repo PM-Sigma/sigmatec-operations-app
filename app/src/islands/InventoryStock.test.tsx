@@ -29,6 +29,7 @@ vi.mock('@/lib/inventoryApi', () => ({
 }));
 
 import { InventoryStockTab } from '@/islands/InventoryStock';
+import { sigma } from '@/bridge';
 
 describe('InventoryStockTab — KPI tap-filter', () => {
   it('tapping מלאי נמוך filters the pool list to low items only, and tapping again clears it', () => {
@@ -45,5 +46,16 @@ describe('InventoryStockTab — KPI tap-filter', () => {
     fireEvent.click(lowTile);
     expect(screen.getByTestId('inv-pool-row-בקר 504')).toBeTruthy();
     expect(lowTile.getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('stock_enforced=false: no מלאי נמוך tile, no נמוך tag, no min-qty editor button — the list still shows', () => {
+    (sigma as any).stockEnforced = () => false;
+    try {
+      render(<InventoryStockTab />);
+      expect(screen.queryByTestId('inv-kpi-low')).toBeNull();
+      expect(screen.queryByText('נמוך')).toBeNull();
+      expect(screen.queryByTestId('minqty-open')).toBeNull();
+      expect(screen.getByTestId('inv-pool-row-מונה PM135')).toBeTruthy();
+    } finally { delete (sigma as any).stockEnforced; }
   });
 });

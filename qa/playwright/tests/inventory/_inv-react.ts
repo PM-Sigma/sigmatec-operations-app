@@ -288,6 +288,8 @@ export const reactDriver: InvDriver = {
   async certCancel(page, n) {
     await page.locator(`[data-testid="inv-cert-more-${n}"]`).click();
     await page.locator(`[data-testid="inv-cert-cancel-${n}"]`).click();
+    // cancel asks first (ConfirmSheet) — confirm it
+    await page.getByRole('button', { name: 'ביטול התעודה', exact: true }).click();
     await page.waitForTimeout(300);
   },
   async certReissue(page, n) {

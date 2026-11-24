@@ -13,6 +13,7 @@ import { Tag } from '@/components/ui/chip';
 import { sigma, useCurrentUser } from '@/bridge';
 import { useInventory } from '@/lib/inventoryApi';
 import { poolStock, productCategoryMap, lowStockReport, poolView, poolCsvRows, csvText } from '@/lib/inventory';
+import { stockOn } from '@/lib/stockSwitch';
 import { STOCK_CHANGE_OPEN_EVENT } from './StockChange';
 import { InventoryStrip } from './InventoryStrip';
 
@@ -39,7 +40,8 @@ export function InventoryStockTab() {
 
   const pool = React.useMemo(() => poolStock(data?.movements || []), [data]);
   const catMap = React.useMemo(() => productCategoryMap(data?.products || []), [data]);
-  const report = React.useMemo(() => lowStockReport(pool), [pool]);
+  const enforced = stockOn(); // off (settings.stock_enforced=false): no low-stock tile/tags, no red negatives
+  const report = React.useMemo(() => lowStockReport(pool, enforced), [pool, enforced]);
   const view = React.useMemo(() => poolView(pool, catMap, report, filter), [pool, catMap, report, filter]);
 
   const canExport = (() => { try { return !!sigma.canExportExcel?.(); } catch { return false; } })();
@@ -89,7 +91,7 @@ export function InventoryStockTab() {
           3-at-480px+ container query (styles.css .s-stat-grid) left the third tile wrapping
           onto its own row at 360/412, an uneven 2+1. `grid-cols-3` pins this one instance to
           three equal columns at every width it actually appears at. */}
-      <StatTileGrid className="!grid-cols-3">
+      <StatTileGrid className={enforced ? '!grid-cols-3' : '!grid-cols-2'}>
         <span data-testid="inv-kpi-items">
           <StatTile
             value={view.productCount}
@@ -106,15 +108,17 @@ export function InventoryStockTab() {
         <span data-testid="inv-kpi-units">
           <StatTile value={view.totalUnits} label="יחידות" />
         </span>
-        <span data-testid="inv-kpi-low">
-          <StatTile
-            value={view.lowCount}
-            label="מלאי נמוך"
-            role="danger"
-            selected={filter === 'low'}
-            onClick={() => setFilter(f => (f === 'low' ? '' : 'low'))}
-          />
-        </span>
+        {enforced && (
+          <span data-testid="inv-kpi-low">
+            <StatTile
+              value={view.lowCount}
+              label="מלאי נמוך"
+              role="danger"
+              selected={filter === 'low'}
+              onClick={() => setFilter(f => (f === 'low' ? '' : 'low'))}
+            />
+          </span>
+        )}
       </StatTileGrid>
 
       {/* the orders strip + מינימום מלאי editor — unchanged (owned by R), embedded here directly
@@ -149,7 +153,7 @@ export function InventoryStockTab() {
                   trailing={
                     <span className="flex items-center gap-1.5">
                       {row.low && <Tag role="danger">נמוך</Tag>}
-                      <span className={row.negative ? 'tabular-nums font-bold text-[var(--danger-ink)]' : 'tabular-nums font-bold'}>
+                      <span className={row.negative && enforced ? 'tabular-nums font-bold text-[var(--danger-ink)]' : 'tabular-nums font-bold'}>
                         <bdi>{row.qty}</bdi>
                       </span>
                     </span>
