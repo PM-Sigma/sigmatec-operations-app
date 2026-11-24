@@ -284,6 +284,9 @@ test('C4: מוצרים נוספים is a keyword search — "לנדיס" offers 
       { product: 'מונה Landis+Gyr E360PP', quantity: 5, fromLocation: '', toLocation: 'חברה' },
       { product: 'מונה Landis+Gyr E360SP', quantity: 4, fromLocation: '', toLocation: 'חברה' },
     ];
+    // tiles + search come from the ACTIVE CATALOG (24.11), so the second family member must be in it
+    if (!w.SHEET_DATA.products.some((p: any) => p.name === 'מונה Landis+Gyr E360SP'))
+      w.SHEET_DATA.products.push({ id: 'p-sp', name: 'מונה Landis+Gyr E360SP', category: 'מונה', active: true });
   });
 
   await expect(page.locator('[data-mode="arrival"]')).toBeVisible({ timeout: 15_000 });
