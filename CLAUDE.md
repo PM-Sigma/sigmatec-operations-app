@@ -40,12 +40,13 @@ known limits: nodes tagged `status: not_on_disk` are planned/retired code, and
 ## Workflow — keep this true
 - Edit `js/src/*.js` → run `node build.mjs` (concatenates → `js/app.js` + version stamp) → commit.
   **Never edit `js/app.js` directly.**
-- **One feature = one branch.** Cut `feat/<name>` from `dev`, build + test THERE, then merge
-  `feat/<name>`→`dev`. Never work a feature directly on `dev`/`main`. Don't commit another feature's
-  WIP files (e.g. an in-progress spec) — they stay only on their own branch.
-- `main` = live (GitHub Pages auto-deploys). `dev` = integration; preview via
-  `raw.githack.com/PM-Sigma/sigmatec-operations-app/dev/…`. Ship path: `feat`→`dev`→`main`
-  (fast-forward) once verified.
+- **One feature = one branch, in a worktree off `origin/main`.** `git worktree add -b feat/<name> <path>
+  origin/main`; build + test THERE. Don't commit another feature's WIP files (e.g. an in-progress
+  spec) — they stay only on their own branch.
+- `main` = live (GitHub Pages auto-deploys) and the ONLY integration branch. **There is no `dev`
+  workflow:** `origin/dev` is ~550 commits behind `main` — cutting from it or merging into it, then
+  shipping, would revert production. Ship = the "Parallel-safe merge" loop below: rebase onto
+  `origin/main`, rebuild, push ff-only `git push origin HEAD:main`.
 - Test flags: `?login=0` (skip EMS gate), `?sb=0` (mock data).
 
 ### Parallel-safe merge to `main` (MANDATORY — multiple sessions/agents work this repo at once)

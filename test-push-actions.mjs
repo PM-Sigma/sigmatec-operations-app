@@ -3,7 +3,7 @@
 import assert from 'node:assert';
 
 // --- ported from push-send (keep identical) ---
-const kindForHour = (hh) => (hh === 19 ? 'evening' : hh === 9 ? 'morning' : null);
+const kindForHour = (hh) => (hh === 20 ? 'evening' : hh === 9 ? 'morning' : null);
 function priorMissing(have, t) {
   const out = [];
   for (let day = 1; day < t.d; day++) {
@@ -22,10 +22,10 @@ function orderActions(event, order) {
 // --- end ported ---
 
 // hour gate
-assert.equal(kindForHour(19), 'evening');
+assert.equal(kindForHour(20), 'evening');
 assert.equal(kindForHour(9), 'morning');
 assert.equal(kindForHour(8), null);
-assert.equal(kindForHour(20), null);
+assert.equal(kindForHour(19), null);
 assert.equal(kindForHour(0), null);
 
 // priorMissing — July 2026, "today" = 6th → prior days 1..5, Fri/Sat dropped.

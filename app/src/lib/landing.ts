@@ -21,7 +21,7 @@ export { APP_PEOPLE, VIEWER_NAME, isViewerToken } from '@/lib/people';
 /** The five people-shaped roles §7l reasons about (not the same axis as the PIN role). */
 export type PersonRole = 'field' | 'pm' | 'dev' | 'ceo' | 'viewer';
 
-/** The one landing that is not a page: the viewer's reports hub lives ON the kibbutz page. */
+/** Where a landing goes: a page, optionally scrolled to an element. */
 export type LandingTarget = { page: SigmaPage; scrollTo?: string };
 
 const BY_NAME: Record<string, PersonRole> = {
@@ -60,8 +60,7 @@ export function defaultLanding(role: PersonRole): LandingTarget {
 export function landingFromSetting(landing: Landing): LandingTarget | null {
   switch (landing) {
     case 'auto': return null;
-    case 'reports': return { page: 'kibbutz', scrollTo: 'viewerReportsHub' };
-    case 'kibbutz': case 'dev': case 'calendar': case 'inventory':
+    case 'kibbutz': case 'reports': case 'dev': case 'calendar': case 'inventory':
       return { page: landing as SigmaPage };
     // "attendance" stays a valid stored value (older saves); it now means the field hub.
     case 'attendance': case 'fieldops': return { page: 'fieldops' };

@@ -37,6 +37,16 @@
     });
   }
 
+  // Does this person have ANY registered device? Unknown (offline / error) answers true: never
+  // nag on a guess. The nag below is keyed on this, not on the browser's permission state.
+  async function hasDevice() {
+    try {
+      var r = await fetch(SB_URL + '/rest/v1/push_subscriptions?select=endpoint&limit=1&owner=eq.' + encodeURIComponent(currentOwner()), { headers: authHeaders() });
+      var j = await r.json();
+      return !Array.isArray(j) || j.length > 0;
+    } catch (e) { return true; }
+  }
+
   async function subscribe() {
     var reg = await navigator.serviceWorker.ready;
     var sub = await reg.pushManager.getSubscription();
@@ -81,7 +91,10 @@
     }
 
     var blocked = mode === 'denied';
-    var msg = blocked
+    var install = mode === 'install';   // iPhone not on the home screen / no push support: nothing to enable yet
+    var msg = install
+      ? 'עדיין אין לך מכשיר רשום להתראות. באייפון: פתחו את האפליקציה מהאייקון במסך הבית (שיתוף ← הוסף למסך הבית) ואז אפשרו התראות. בלי זה לא יגיעו תזכורות נוכחות והזמנות.'
+      : blocked
       ? 'בעקבות העדכון האחרון נדרשות התראות, אך הן חסומות במכשיר זה. יש לאפשר אותן ידנית: לחצו על 🔒/⋮ בשורת הכתובת → הגדרות אתר → התראות → אפשר, ואז רעננו.'
       : 'בעקבות העדכון האחרון נדרש לאפשר קבלת התראות כדי לקבל עדכונים על הזמנות ונוכחות. נא לאשר.';
     var wrap = document.createElement('div');
@@ -90,15 +103,16 @@
     wrap.style.zIndex = '100003';
     wrap.innerHTML = '<div class="modal" style="max-width:400px;text-align:center;">' +
       '<div style="font-size:40px;">🔔</div>' +
-      '<h3 style="margin:8px 0 6px;color:#b91c1c;">נדרש לאפשר התראות</h3>' +
+      '<h3 style="margin:8px 0 6px;color:#b91c1c;">' + (install ? 'אין מכשיר רשום להתראות' : 'נדרש לאפשר התראות') + '</h3>' +
       '<div style="font-size:14px;color:#334155;line-height:1.6;margin-bottom:16px;">' + msg + '</div>' +
       '<div style="display:flex;gap:8px;">' +
-      '<button id="pushEnableYes" style="flex:1;background:#dc2626;color:#fff;border:none;border-radius:8px;padding:12px;font-weight:800;cursor:pointer;font-size:15px;">' + (blocked ? '🔄 ניסיתי, רענן' : '✅ אפשר התראות') + '</button>' +
+      (install ? '' : '<button id="pushEnableYes" style="flex:1;background:#dc2626;color:#fff;border:none;border-radius:8px;padding:12px;font-weight:800;cursor:pointer;font-size:15px;">' + (blocked ? '🔄 ניסיתי, רענן' : '✅ אפשר התראות') + '</button>') +
       '<button id="pushEnableLater" style="background:#f1f5f9;color:#64748b;border:none;border-radius:8px;padding:12px 14px;font-weight:700;cursor:pointer;">אחר כך</button>' +
       '</div></div>';
     document.body.appendChild(wrap);
     document.getElementById('pushEnableLater').onclick = function () { wrap.remove(); };   // session-only; reappears next login
-    document.getElementById('pushEnableYes').onclick = function (ev) {
+    var yes = document.getElementById('pushEnableYes');
+    if (yes) yes.onclick = function (ev) {
       if (blocked) { wrap.remove(); location.reload(); return; }
       // F8: single-flight, via sigmaPushEnable() above.
       var btn = ev && ev.currentTarget;
@@ -106,10 +120,15 @@
     };
   }
 
-  // Call after login. iOS/unsupported → silent no-op (in-app modal covers them).
+  // Call after login (every app open). Not granted → the enable prompt; no push support → the "no device" prompt.
   window.initPush = async function () {
-    if (!supported || isIOS) return;
     try {
+      // No push in this browser (or an iPhone that is not on the home screen): the only thing
+      // to do is tell him, EVERY open, until some device of his is registered.
+      if (!supported || (isIOS && window.navigator.standalone !== true)) {
+        if (!(await hasDevice())) showEnablePrompt('install');
+        return;
+      }
       if (Notification.permission === 'granted') { await subscribe(); return; }   // already granted → re-sync owner
       showEnablePrompt(Notification.permission === 'denied' ? 'denied' : 'default');
     } catch (e) { console.warn('[push] init failed', e); }
@@ -203,13 +222,13 @@
   //
   // 🕎 HOLIDAYS (spec §7e): a date in `holidays` with `required=false` — an Israeli public
   // holiday or a company closure — is NOT a work day and is never missing. `holidays` is
-  // optional and defaults to whatever the session loaded into SHEET_DATA.holidays, so every
+  // optional and defaults to whatever the session loaded into window._holidays, so every
   // existing caller gets the behaviour without passing anything. The same rule is applied by
   // app/src/lib/attendance.ts (isRequiredDay) and by push-send's priorMissing; all three must
   // agree or a worker is nagged about יום כיפור.
   function attNotRequired(holidays) {
     var src = holidays;
-    if (!src) { try { src = (window.SHEET_DATA || {}).holidays; } catch (e) { src = null; } }
+    if (!src) src = window._holidays;
     var out = {};
     (src || []).forEach(function (h) {
       if (!h || !h.date || h.required) return;

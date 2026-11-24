@@ -118,9 +118,9 @@ check('entering attendance on a holiday is allowed and keeps it out of the list'
   const out = M.attMissingDays(att, [], 'אביאם', 2026, 8, OCT, SEPT_HOLIDAYS);
   assert.ok(!out.includes('2026-09-21'));
 });
-check('the list defaults to SHEET_DATA.holidays when the caller passes none', () => {
+check('the list defaults to window._holidays when the caller passes none', () => {
   const w = loadModule();
-  w.SHEET_DATA = { holidays: SEPT_HOLIDAYS };
+  w._holidays = SEPT_HOLIDAYS;
   assert.ok(!w.attMissingDays([], [], 'אביאם', 2026, 8, OCT).includes('2026-09-21'));
 });
 

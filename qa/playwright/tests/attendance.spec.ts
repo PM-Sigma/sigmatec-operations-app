@@ -47,10 +47,15 @@ test('attendance: the island owns the screen and the legacy table steps aside', 
   await expect(page.locator('#attendanceTable')).toBeAttached();
 
   await expect(page.getByRole('heading', { name: /נוכחות/ })).toBeVisible();
-  // desktop (>=1024) shows ONE day editor (att-panel). The manual "היום" quick block is gone for
-  // the field workers (עידן 11.10): their field days come only from a saved visit summary.
-  if ((page.viewportSize()?.width ?? 0) >= 1024) await expect(page.getByTestId('att-panel')).toBeVisible();
-  await expect(page.getByTestId('att-today')).toHaveCount(0);
+  // desktop (>=1024) shows ONE day editor (att-panel). On the phone every user sees the "היום" block;
+  // field workers never get שטח there (it comes from a saved visit summary) but do get the door to it.
+  const wide = (page.viewportSize()?.width ?? 0) >= 1024;
+  if (wide) await expect(page.getByTestId('att-panel')).toBeVisible();
+  await expect(page.getByTestId('att-today')).toHaveCount(wide ? 0 : 1);
+  if (!wide) {
+    await expect(page.getByTestId('att-today-visit')).toBeVisible();
+    await expect(page.locator('[data-testid="att-today"] [data-daytype="field"]')).toHaveCount(0);
+  }
   await expect(page.getByTestId('att-kpi-field')).toBeVisible();
   await expect(page.getByTestId('att-kpi-office')).toBeVisible();
   await expect(page.getByTestId('att-kpi-missing')).toBeVisible();
@@ -214,10 +219,10 @@ test('attendance: an ערב חג offers מהבית on a countdown that can be st
     const p = (v: number) => String(v).padStart(2, '0');
     const key = x.getFullYear() + '-' + p(x.getMonth() + 1) + '-' + p(x.getDate());
     const w = window as any;
-    w.SHEET_DATA.holidays = (w.SHEET_DATA.holidays || [])
+    w._holidays = (w._holidays || [])
       .filter((h: any) => h.date !== key)
       .concat([{ date: key, name: 'ערב חג לדוגמה', kind: 'holiday_eve', required: true }]);
-    w.sigmaEmit?.('holidays-loaded', { count: w.SHEET_DATA.holidays.length });
+    w.sigmaEmit?.('holidays-loaded', { count: w._holidays.length });
     return key;
   });
 

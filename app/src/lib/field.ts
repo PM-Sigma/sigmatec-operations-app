@@ -742,7 +742,7 @@ export function inQuietHours(at: Date | string | number): boolean {
 // ───────────── the attendance cron's two hours (spec §7h: ⏰ שעת תזכורת סוף יום) ─────────────
 
 /** The evening nudge's hour for anyone who never chose one. */
-export const EOD_DEFAULT_HH = 19;
+export const EOD_DEFAULT_HH = 20;   // logs 23.11: same-day summaries land by ~18:50 (p80) - 19:00 buzzed before the last ones
 /** The morning "days are missing" nudge. Not a preference — it is one hour for everyone. */
 export const ATT_MORNING_HH = 9;
 
@@ -751,7 +751,7 @@ export const ATT_MORNING_HH = 9;
  * review Minor #2): `Settings.tsx`'s `EOD_HOURS` picker only ever writes 17/18/19/20, but this
  * reads whatever is actually sitting in `user_settings.eod_hour` — a stray/legacy value
  * outside that range would otherwise be honored verbatim by the cron instead of falling back
- * to the 19:00 default.
+ * to the 20:00 default.
  */
 export function eodHourFor(person: string, eodHours: Record<string, number | null | undefined> | null | undefined): number {
   // `null` is the column's "never chose" — and `Number(null)` is 0, i.e. midnight, so the
@@ -794,11 +794,13 @@ export function attendanceCronRuns(
 }
 
 /**
- * Prior required weekdays (Sun–Thu, not an off-holiday) this month, 1st up to YESTERDAY, that
- * have neither an attendance row (`have`) nor a field check-in (`fieldDays`: a non-dismissed
- * `field_checkins` row — "שטח, ממתין לסיכום", the summary is still coming). Ascending.
- * The SAME rule the screen applies in lib/attendance.ts monthGrid/missingDays (pinned equal in
- * field.test.ts), so the buzz and the red cell can never disagree.
+ * Required weekdays (Sun-Thu, not an off-holiday) of the PREVIOUS month and this month, 1st of
+ * last month up to YESTERDAY, that have neither an attendance row (`have`) nor a field check-in
+ * (`fieldDays`: a non-dismissed `field_checkins` row - "שטח, ממתין לסיכום", the summary is still
+ * coming). Ascending. Last month keeps reminding until it is filled (owner 23.11). The sets
+ * are keyed by date, so the caller reads both months into each. The SAME rule the screen applies
+ * in lib/attendance.ts missingWithPrior (pinned equal in field.test.ts), so the buzz and the
+ * red cell can never disagree.
  */
 export function priorMissingDates(
   have: Set<string>,
@@ -807,10 +809,11 @@ export function priorMissingDates(
   off: Set<string> = new Set(),
 ): string[] {
   const out: string[] = [];
-  for (let day = 1; day < t.d; day++) {
-    const dow = new Date(Date.UTC(t.y, t.m - 1, day)).getUTCDay();
-    if (dow > 4) continue;
-    const key = t.y + '-' + String(t.m).padStart(2, '0') + '-' + String(day).padStart(2, '0');
+  const end = Date.UTC(t.y, t.m - 1, t.d);
+  for (let ms = Date.UTC(t.y, t.m - 2, 1); ms < end; ms += 86400000) {
+    const dt = new Date(ms);
+    if (dt.getUTCDay() > 4) continue;
+    const key = dt.toISOString().slice(0, 10);
     if (off.has(key) || have.has(key) || fieldDays.has(key)) continue;
     out.push(key);
   }

@@ -227,10 +227,13 @@ async function openAttendance(page: Page): Promise<void> {
 }
 const editorOf = (page: Page) => page.locator('[data-testid="att-sheet"]:visible, [data-testid="att-panel"]:visible').first();
 
-test('attendance: field staff have no manual daily report', async ({ page }, ti) => {
+test('attendance: field staff have no manual שטח report (visit-summary button instead)', async ({ page }, ti) => {
   const { rec } = await boot(page, ti, { who: 'ניתאי' });
   await openAttendance(page);
-  await expect(page.getByTestId('att-today')).toHaveCount(0);
+  if ((page.viewportSize()?.width ?? 0) < 1024) {
+    await expect(page.getByTestId('att-today-visit')).toBeVisible();
+    await expect(page.locator('[data-testid="att-today"] [data-daytype="field"]')).toHaveCount(0);
+  }
   await expect(page.getByText('דיווח נוכחות ידני')).toHaveCount(0);
   expectNoConsoleErrors(rec);
 });

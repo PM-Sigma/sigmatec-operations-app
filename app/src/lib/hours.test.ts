@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  canEditHours, canSeeHours, durationMin, filterHours, fmtHoursCell, hoursBody, hoursByDay, hoursPrintHtml,
+  canEditHours, canSeeHours, seesOnlyOwnHours, durationMin, filterHours, fmtHoursCell, hoursBody, hoursByDay, hoursPrintHtml,
   hoursTiles, hoursXlsxSpec, monthsOf, peopleOf, totals, validateHours, type WorkSessionRow,
 } from './hours';
 
@@ -17,6 +17,12 @@ describe('who', () => {
     expect(canEditHours('עידן', false)).toBe(true);
     expect(canEditHours('מתניה', false)).toBe(false);
     expect(canEditHours('עידן', true)).toBe(false);
+  });
+  it('only מתניה sees just his own rows (RLS) - the page then says "השעות שלי"', () => {
+    expect(seesOnlyOwnHours('מתניה', false)).toBe(true);
+    for (const p of ['עידן', 'עמיחי']) expect(seesOnlyOwnHours(p, false)).toBe(false);
+    expect(seesOnlyOwnHours('צפייה', true)).toBe(false);
+    expect(seesOnlyOwnHours('אביאם', false)).toBe(false);   // cannot see the page at all
   });
 });
 

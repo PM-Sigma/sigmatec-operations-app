@@ -18,6 +18,34 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 - **7 Toasts:** one save = one summary toast (attendance headline + heads-ups + EMS results as lines).
 - **Rollback:** revert the commit; no DB change. Tests: test-visit-summary-chain (S1-S3), test-visit-writevisit (R1-R2), visitDraft.test.ts (draftIdFor A->B), daylog.test.ts (hasEquipment).
 
+## 2026-11-23 - Attendance / notifications / security fix round 2 (branch fix/r1-att2, on top of round 1)
+- **Why:** owner decisions after round 1: last month must keep reminding, the screen went stale, field staff had no "today" block, the evening
+  push fired before summaries were done, a user with no push device was never chased, and the push endpoint had unauthenticated modes.
+- **Last month keeps reminding:** push `priorMissingDates` (field.ts) scans 1st of last month -> yesterday; the screen list (`missingWithPrior`,
+  current-month view; also the manager "חסר לצוות" counts) uses the same window, tapping a last-month day jumps to that month.
+  Agreement test extended (field.test.ts). Check-ins/holidays/attendance are read for both months in push-send.
+- **Screen refresh:** `sigmaEmit('data-refreshed')` at the end of the 15s poll (10-activity.js); the attendance island refetches rows + check-ins on it;
+  `today` is derived per render (no longer frozen at mount).
+- **"היום" for everyone:** field staff get office/home/vacation/other chips (never שטח) + a "סיכום ביקור" button (`sigma.openVisitQuick`);
+  a check-in today without a row shows amber "שטח, ממתין לסיכום". (Phone layout; desktop keeps the day panel.)
+- **Evening push default 20:00** (was 19:00). Logs, last 60 days, same-day summaries by אביאם/ניתאי: 7 rows; last summary of the day p50 18.0-18.5, p80 18.8-18.9,
+  p90 19.0-19.2 (Israel time); 4 of 7 were saved in the 19:xx hour, so 19:00 fired before them. Only 7 same-day samples (most are filed next day or later) - re-check later.
+  Nobody has a stored `eod_hour` (עידן = null), so everyone moves; the picker still allows 17-20.
+- **No push device -> nag:** `initPush` now asks `push_subscriptions` for the person; no row on an iPhone not on the home screen / a browser without
+  push -> a prompt EVERY open (dismissible for the session). Installed iOS PWAs now go through the normal enable flow. Managers see
+  "אין מכשיר רשום" next to the person in the team strip.
+- **Holidays survive the poll:** stored on `window._holidays` (not `SHEET_DATA`, which the 15s poll replaces); `attHolidays()` reads it, so PDF/Excel exports keep marking them (test-push-auth.mjs).
+- **Usage report:** `PAGE_LABEL` = live pages only (kibbutz, fieldops, readings, reports, inventory, calendar, emsstats, dev, pushlog, hours); ems/mytasks/staff/attendance gone, so they are never "unused".
+- **Hours page:** מתניה sees only his rows (RLS) and the page says "השעות שלי" (`seesOnlyOwnHours`); false "sees all" claims removed.
+- **Small:** hub header ➕ on `fieldops` opens the visit summary; landing "דוחות" -> `{page:'reports'}`; stale comments (burns, bridge, consts, init-attendance, MoreSheet, sw.js header, architecture.md PWA/Apps Script).
+- **Docs:** CLAUDE.md + INDEX.md no longer describe a `dev` workflow (origin/dev is ~550 commits behind; following it could revert production). INDEX "Current state" collapsed into one block; backlog hub no longer "planned".
+- **Security (push-send):** `approveOrder` and the order-event mode now require a signed-in person (the 180-min pass, verified with JWT_SECRET) - the actor is the verified name, `approveOrder` checks
+  `canApproveOrder` (עמיחי any; אביאם <=10 items), order events must match the order state and fire once per `event:orderId` (push_log); `attendanceCron` requires the cron key or an EMS login
+  (pg_cron already sends the key). The notification "אישור" button now opens the app (`?pushact=approve`), the service worker no longer POSTs with the public key. Inventory alert/digest return `skipped:'stock not enforced'` unless `settings.stock_enforced` is true (missing = false).
+- **Needs MAIN:** deploy edge function `push-send` (new files orderAuth.js, field.ts, usageNarrative.ts). **No SQL file in this round** (`stock_enforced` row comes from the certs/inventory change). The sent-from-client `pushNotify` still works only while the 180-min pass is valid.
+- **Rollback:** revert the commit + redeploy the previous push-send.
+- **Not done (other agents' files):** UTC-"today" in js/src/09-visits.js:~284, app/src/islands/InventoryCert.tsx, InventoryCerts.tsx, lib/inventoryApi.ts.
+
 ## 2026-11-23 - Attendance alerts: 4 fixes (אביאם/ניתאי "missing day" noise)
 - **Why:** the missing-day alerts felt buggy: a legacy popup with no holiday check, a morning push that stacked a growing list
   every day incl. Fri/Sat/holidays, field days counted as missing, and every manual save adding a second row for the day.

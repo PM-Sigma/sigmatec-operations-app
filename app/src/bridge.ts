@@ -341,8 +341,10 @@ export type SigmaEvent =
   // a day was saved on the attendance page, from either half (spec §7e). Consumers: the
   // attendance island's month + KPIs (docs/integration-map.md)
   | 'attendance-saved'
-  // the session's 🕎 holiday list landed in SHEET_DATA.holidays (js/src/04-attendance-daily.js)
+  // the session's 🕎 holiday list landed in window._holidays (js/src/04-attendance-daily.js)
   | 'holidays-loaded'
+  // the 15s legacy poll replaced SHEET_DATA (js/src/10-activity.js) - islands that read it once re-read
+  | 'data-refreshed'
   // the route for one (person, date) was reordered in the calendar (spec §7f). Consumer:
   // the arrival sheet + the "היום" strip, which order by the same day_plans row
   | 'dayplan-changed'
@@ -358,8 +360,8 @@ export type SigmaEvent =
   // ── added by the Task 18 sweep ───────────────────────────────────────────────
   // All four were already being emitted with the union never updated, so TypeScript could not
   // spell-check them and docs/integration-map.md never listed them.
-  // 🔥 a burn was marked נצרב / בעיה / גנרטור (components/home/Burns.tsx). Consumer: the legacy
-  // 🔥 צריבות table (js/src/24-meter-burns.js) re-renders.
+  // 🔥 a burn was marked נצרב / בעיה / גנרטור (components/home/Burns.tsx). Consumers: the burns
+  // cards and strip refetch (components/home), the legacy table is gone.
   | 'burns-changed'
   // 🔒 an internal task was added, closed or reassigned (components/home/InternalTasks.tsx)
   | 'internal-tasks-changed'

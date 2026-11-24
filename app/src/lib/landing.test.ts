@@ -51,8 +51,8 @@ describe('landingFromSetting', () => {
   it('auto defers to the role', () => {
     expect(landingFromSetting('auto')).toBe(null);
   });
-  it('reports is the hub on the kibbutz page, not a page of its own', () => {
-    expect(landingFromSetting('reports')).toEqual({ page: 'kibbutz', scrollTo: 'viewerReportsHub' });
+  it('reports is the reports page itself (the old kibbutz-hub scroll never worked)', () => {
+    expect(landingFromSetting('reports')).toEqual({ page: 'reports' });
   });
   it('every other value is the page itself', () => {
     expect(landingFromSetting('dev')).toEqual({ page: 'dev' });

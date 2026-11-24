@@ -40,7 +40,7 @@ import { sigma, useCurrentUser, useSigmaEvent } from '@/bridge';
 import {
   attCellLook, attDayPolicy, attLegend, attTiles, canEditAttendance, DAY_POLICY_TEXT, isFieldStaffSelf, type AttDayPolicy, canOverride, canSwitchPerson, dayChip, dayLabel, DAY_ORDER,
   EVE_COUNTDOWN_MS, EVE_DEFAULT_TYPE, eveCountdownText, HE_DAY_LETTERS, holidayNote,
-  kpis as computeKpis, mergeByDay, missingBlock, missingByPerson, missingDays, monthGrid, originLine, rowOrigin, savedToast,
+  kpis as computeKpis, mergeByDay, mustFile, missingBlock, missingByPerson, missingDays, missingWithPrior, monthGrid, PENDING_LABEL, originLine, rowOrigin, savedToast,
   toggleTile, ymd,
   type AttRow, type AttCellState, type DayCell, type DayType, type Holiday, type TileKey,
 } from '@/lib/attendance';
@@ -87,6 +87,9 @@ const LEGEND_DOT: Record<string, string> = {
   holiday: 'bg-[var(--holiday-ink)]', eve: 'bg-[var(--holiday-ink)]', field: 'bg-[var(--ok-ink)]',
   office: 'bg-[var(--info-ink)]', away: 'bg-[var(--neutral-ink)]', missing: 'bg-[var(--danger-ink)]',
 };
+
+/** What a field worker may file by hand today (שטח comes from the visit summary). */
+const FIELD_STAFF_TODAY: DayType[] = ['office', 'wfh', 'vacation', 'other'];
 
 function DayTypeRow({ value, onPick, busy, types = DAY_ORDER }: { value: DayType | null; onPick: (t: DayType) => void; busy: boolean; types?: DayType[] }) {
   return (
@@ -303,8 +306,8 @@ function AttendanceIsland() {
   const qc = useQueryClient();
   const reduce = useReducedMotion();
   const { name: me } = useCurrentUser();
-  const today = React.useMemo(() => new Date(), []);
-  const todayKey = ymd(today);
+  const todayKey = ymd(new Date());   // per render: a screen left open past midnight moves on
+  const today = React.useMemo(() => new Date(), [todayKey]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   const [person, setPerson] = React.useState<string>(() => {
     try { return sigma.attPerson?.() || me; } catch { return me; }
@@ -353,7 +356,7 @@ function AttendanceIsland() {
     queryKey: ['attCheckins', people.join('|') || person, ym.y, ym.m],
     queryFn: async () => {
       const sb = await getSupabase();
-      const lo = new Date(Date.UTC(ym.y, ym.m - 1, 1) - 86400000).toISOString();
+      const lo = new Date(Date.UTC(ym.y, ym.m - 2, 1) - 86400000).toISOString();   // last month too: it keeps reminding
       const hi = new Date(Date.UTC(ym.y, ym.m, 1) + 86400000).toISOString();
       const { data } = await sb.from('field_checkins').select('person,checked_in_at,dismissed')
         .in('person', Array.from(new Set([...people, person].filter(Boolean)))).gte('checked_in_at', lo).lt('checked_in_at', hi).limit(500);
@@ -369,8 +372,10 @@ function AttendanceIsland() {
 
   const refresh = React.useCallback(() => {
     void qc.invalidateQueries({ queryKey: ['attRows'] });
+    void qc.invalidateQueries({ queryKey: ['attCheckins'] });
   }, [qc]);
   useSigmaEvent('attendance-saved', refresh);
+  useSigmaEvent('data-refreshed', refresh);   // the 15s poll replaced SHEET_DATA: re-read it
   useSigmaEvent('visit-saved', refresh);
   // The 🕎 list is fetched by the LEGACY side (js/src/04-attendance-daily.js) and cached here
   // for six hours. Mount before that fetch lands — the ordinary cold boot — and the island
@@ -390,17 +395,35 @@ function AttendanceIsland() {
   const grid = React.useMemo(() => monthGrid(ym.y, ym.m, rows, holidays, today, fieldDaysFor(person)), [ym, rows, holidays, today, fieldDaysFor, person]);
   const missing = React.useMemo(() => missingDays(rows, holidays, today, ym.y, ym.m, fieldDaysFor(person)), [rows, holidays, today, ym, fieldDaysFor, person]);
   const kpis = React.useMemo(() => computeKpis(rows, missing, holidays), [rows, missing, holidays]);
-  const mb = React.useMemo(() => missingBlock(person, me, missing, kpis.onHoliday), [person, me, missing, kpis.onHoliday]);
+  // Viewing THIS month: last month's open days ride along (owner 23.11) - same window as the push.
+  const isCurMonth = ym.y === today.getFullYear() && ym.m === today.getMonth() + 1;
+  const missingList = React.useMemo(
+    () => (isCurMonth ? missingWithPrior((y, m) => readRows(person, y, m), holidays, today, fieldDaysFor(person)) : missing),
+    // rows/dataUpdatedAt = "SHEET_DATA moved", which is what makes last month's rows readable too.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [isCurMonth, missing, rows, rowsQ.dataUpdatedAt, holidays, today, fieldDaysFor, person],
+  );
+  const mb = React.useMemo(() => missingBlock(person, me, missingList, kpis.onHoliday), [person, me, missingList, kpis.onHoliday]);
+  // Who has no registered push device (managers only): shown next to the name in the team strip.
+  const devicesQ = useQuery({
+    queryKey: ['pushOwners'],
+    queryFn: async () => {
+      const sb = await getSupabase();
+      const { data } = await sb.from('push_subscriptions').select('owner').limit(1000);
+      return new Set((data || []).map((r: { owner: string }) => String(r.owner)));
+    },
+    enabled: canSwitch, staleTime: 5 * 60_000,
+  });
   // עידן 20.9 #2 — whoever can switch person is here to CHASE the gaps, not to browse a
   // calendar, so they get the same question answered for the whole team at once. Read
   // straight off the legacy snapshot (the same source `readRows` uses for the open person),
   // recomputed when the snapshot lands or the month moves.
   const teamMissing = React.useMemo(
-    () => (canSwitch ? missingByPerson(people, p => readRows(p, ym.y, ym.m), holidays, today, ym.y, ym.m, fieldDaysFor) : []),
+    () => (canSwitch ? missingByPerson(people, (p, y, m) => readRows(p, y!, m!), holidays, today, ym.y, ym.m, fieldDaysFor, isCurMonth) : []),
     // `rows` is in the deps on purpose: it is the signal that SHEET_DATA arrived, which is
     // what makes every OTHER person's rows readable too.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [canSwitch, people.join('|'), ym.y, ym.m, holidays, today, rows, fieldDaysFor],
+    [canSwitch, people.join('|'), ym.y, ym.m, holidays, today, rows, rowsQ.dataUpdatedAt, fieldDaysFor, isCurMonth],
   );
 
   // Keep the LEGACY report in step: it is what `📄 PDF` and `📗 Excel` read
@@ -428,6 +451,13 @@ function AttendanceIsland() {
     onError: (e: Error) => toastFailure(e, undefined, 'השמירה לא עברה. אפשר לנסות שוב'),
   });
 
+  // A missing day can be LAST month's (not on this grid): go to its month, then open it.
+  const openDate = (date: string) => {
+    const c = grid.cells.find(x => x.date === date);
+    if (c) return openDay(c);
+    setYm({ y: +date.slice(0, 4), m: +date.slice(5, 7) });
+    openDay({ date, state: 'missing' } as DayCell);
+  };
   const openDay = (c: DayCell) => {
     setSelected(c.date);
     // The phone bottom sheet must stay closed on desktop: opening it renders Radix's
@@ -495,7 +525,7 @@ function AttendanceIsland() {
                     data-missing={d.date}
                     aria-label={d.aria}
                     title={<bdi>{d.label}</bdi>}
-                    onClick={() => openDay(grid.cells.find(c => c.date === d.date)!)}
+                    onClick={() => openDate(d.date)}
                   />
                 ))}
                 {!showAllMissing && mb.days.length > 4 && (
@@ -523,7 +553,9 @@ function AttendanceIsland() {
                     data-person-missing={t.person}
                     data-count={t.known ? String(t.count) : ''}
                     aria-pressed={t.person === person}
-                    title={<bdi>{t.person}</bdi>}
+                    title={<><bdi>{t.person}</bdi>{devicesQ.data && mustFile(t.person) && !devicesQ.data.has(t.person) && (
+                      <Tag role="warn" className="ms-2" ><span data-testid="att-no-device">אין מכשיר רשום</span></Tag>
+                    )}</>}
                     meta={<bdi>{t.known ? t.count : '—'}</bdi>}
                     onClick={() => { setPerson(t.person); track('attendance-person'); }}
                   />
@@ -533,15 +565,20 @@ function AttendanceIsland() {
           )}
 
   </>);
+  // Field staff: a check-in today with no row yet = "שטח, ממתין לסיכום" (the summary writes the day).
+  const todayPending = !!todayCell && !todayCell.row && fieldDaysFor(person).has(todayKey);
+  const todayPolicy = todayCell ? policyFor(todayCell) : null;
   const todayEl = (<>
           {/* ── היום: the one thing this screen is for ───────────────────────── */}
-          {todayCell && !fieldStaff && (
+          {todayCell && (
             <div data-testid="att-today">
               <SectionBlock title="היום" flush>
                 <div className="px-4 py-1">
                   <div className="mb-2 flex items-baseline gap-2">
                     <span className="text-[12.5px] text-muted-foreground"><bdi>{dayChip(todayKey)}</bdi></span>
-                    {todayCell.row && <Tag role="ok" className="ms-auto">{dayLabel(todayCell.row.type)}</Tag>}
+                    {todayCell.row
+                      ? <Tag role="ok" className="ms-auto">{dayLabel(todayCell.row.type)}</Tag>
+                      : todayPending && <Tag role="warn" className="ms-auto">{PENDING_LABEL}</Tag>}
                   </div>
                   {todayCell.holiday && !todayCell.holiday.required && (
                     <p className="mb-2 text-[12.5px] text-muted-foreground">{holidayNote(todayCell.holiday)}</p>
@@ -550,12 +587,22 @@ function AttendanceIsland() {
                     <p className="text-[13px] text-muted-foreground">
                       {todayCell.row ? 'דיווח: ' + dayLabel(todayCell.row.type) : 'עוד אין דיווח להיום.'} צפייה בלבד.
                     </p>
+                  ) : fieldStaff && todayPolicy && !todayPolicy.canEdit ? (
+                    <p className="text-[13px] text-muted-foreground">{DAY_POLICY_TEXT[todayPolicy.note as Exclude<typeof todayPolicy.note, ''>]}</p>
                   ) : (
                     <DayTypeRow
                       value={(todayCell.row?.type as DayType) || null}
                       busy={save.isPending}
+                      types={fieldStaff ? FIELD_STAFF_TODAY : DAY_ORDER}
                       onPick={t => (t === 'other' ? openDay(todayCell) : save.mutate({ date: todayKey, type: t, note: '' }))}
                     />
+                  )}
+                  {/* A field day is born from the visit summary, never typed in (עידן 11.10) — so
+                      field staff get the door to it right here, beside the non-field chips. */}
+                  {canEdit && fieldStaff && (
+                    <BubbleButton variant="tonal" size="sm" className="mt-2" data-testid="att-today-visit" onClick={() => sigma.openVisitQuick()}>
+                      סיכום ביקור
+                    </BubbleButton>
                   )}
                 </div>
               </SectionBlock>

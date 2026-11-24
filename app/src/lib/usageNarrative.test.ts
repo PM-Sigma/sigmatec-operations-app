@@ -13,7 +13,7 @@ const ev = (person: string, action: string, at: string, page?: string, target?: 
 const D = (d: number, h = 9) => `2026-09-${String(d).padStart(2, '0')}T${String(h).padStart(2, '0')}:00:00+03:00`;
 
 const PEOPLE = ['אביאם', 'ניתאי', 'עמיחי'];
-const PAGES = ['kibbutz', 'inventory', 'mytasks', 'calendar'];
+const PAGES = ['kibbutz', 'inventory', 'fieldops', 'calendar'];
 
 describe('ymd', () => {
   it('buckets on the Israel day, not the runner timezone', () => {
@@ -37,7 +37,7 @@ describe('usageNarrative', () => {
       ev('אביאם', 'visit-saved', D(14, 11), 'kibbutz', 'דפנה'),
       ev('אביאם', 'view', D(14, 12), 'calendar'),
       ev('אביאם', 'view', D(15), 'kibbutz'),
-      // ניתאי — 1 day, kibbutz only (never opened משימות, which אביאם did not open either)
+      // ניתאי — 1 day, kibbutz only (never opened פעולות שטח, which אביאם did not open either)
       ev('ניתאי', 'view', D(15, 8), 'kibbutz'),
       ev('ניתאי', 'cert-issued', D(15, 9), 'kibbutz', '1041'),
       // עמיחי — never showed up
@@ -53,7 +53,7 @@ describe('usageNarrative', () => {
     ];
 
     expect(usageNarrative(week, prevWeek, PEOPLE, PAGES)).toEqual([
-      'דפים ללא שימוש השבוע: מלאי, משימות.',
+      'דפים ללא שימוש השבוע: מלאי, פעולות שטח.',
       'החיפוש בקיבוצים נכשל 3 פעמים ולא החזיר תוצאה.',
       'אביאם נכנס 3 ימים מתוך 3; סיכום ביקור נשמר אצלו 2 פעמים (שבוע שעבר 3).',
       'ניתאי נכנס יום אחד מתוך 3; תעודת משלוח הופקה אצלו פעם אחת (שבוע שעבר 0).',
@@ -70,7 +70,7 @@ describe('usageNarrative', () => {
       ev('אביאם', 'stock-report', D(13, 12), 'inventory', 'מסנן'),
     ];
     expect(usageNarrative(week, [], ['אביאם'], PAGES)).toEqual([
-      'עמוד משימות לא נפתח על ידי אף אחד השבוע.',
+      'עמוד פעולות שטח לא נפתח על ידי אף אחד השבוע.',
       'אביאם נכנס יום אחד מתוך 1; דיווח מלאי אצלו פעם אחת.',
     ]);
   });
@@ -143,5 +143,12 @@ describe('weekTag', () => {
     expect(weekTag('2026-09-14T08:00:00+03:00')).toBe('usage-2026-w38');
     expect(weekTag('2026-09-20T08:00:00+03:00')).toBe('usage-2026-w38');
     expect(weekTag('2026-01-01T08:00:00+02:00')).toBe('usage-2026-w01');
+  });
+});
+
+describe('PAGE_KEYS is the LIVE page list (owner 23.11)', () => {
+  it('no retired page, every live one - so a retired page can never be reported unused', () => {
+    for (const gone of ['ems', 'mytasks', 'staff', 'attendance']) expect(PAGE_KEYS).not.toContain(gone);
+    for (const live of ['fieldops', 'readings', 'reports', 'kibbutz', 'inventory', 'calendar', 'dev', 'pushlog', 'hours']) expect(PAGE_KEYS).toContain(live);
   });
 });

@@ -1,34 +1,21 @@
 # Architecture
 
-> ⚠ **29.9.26:** Apps Script is no longer used. Everything goes through Supabase (tables, RLS, Edge Functions),
-> and the app calls `api.sigmatec-ems.com/v1` directly with the user's EMS token. The diagram below is historical.
 
-A no-framework, installable **PWA** (classic scripts in one shared global scope) with a
-**hybrid backend**: application data in **Supabase**, EMS/voice/calendar bridged through
-**Google Apps Script**, live operational data from the **EMS API**.
+A no-framework, installable **PWA** (classic scripts in one shared global scope, plus React
+islands under `app/`) on **Supabase** only: application data in Postgres (RLS), server logic in
+Edge Functions, live operational data from the **EMS API** (called directly with the user's EMS
+token). Google Apps Script is retired (29.9.26).
 
 ```
-  ┌─────────────────────────────────────────────────────────────┐
-  │  Browser / installed PWA  (GitHub Pages, static)             │
-  │  index.html → js/app.js (built from js/src/*.js) + css       │
-  │  Service worker: network-first, same-origin only             │
-  └───────────────┬───────────────────────┬─────────────────────┘
-                  │ REST (anon OR              │ POST text/plain
-                  │ authenticated bridge JWT)  │ (no CORS preflight)
-                  ▼                            ▼
-        ┌──────────────────┐        ┌────────────────────────────┐
-        │ Supabase          │        │ Apps Script web app (/exec)│
-        │ Postgres+PostgREST│        │ • EMS proxy (CORS bridge)  │
-        │ RLS policies      │        │ • transcribe / parseRequest│
-        │ Edge fn: ems-auth │        │ • office calendar (Opt. B) │
-        └──────────────────┘        └───────────────┬────────────┘
-                  ▲                                  │ Bearer (caller's EMS token)
-                  │ mint authenticated JWT           ▼
-                  │ (HS256, role=authenticated)   ┌────────────────┐
-                  └───────────────────────────────│  EMS API       │
-                       ems-auth validates EMS tok  │ api.sigmatec-  │
-                                                   │ ems.com/v1     │
-                                                   └────────────────┘
+  Browser / installed PWA (GitHub Pages, static)
+    index.html -> js/app.js (js/src/*.js) + ui/* React islands + css
+    sw.js: shell/pages from cache, refreshed behind; other same-origin network-first
+          |                                   |
+          | REST / supabase-js                | Bearer (user's EMS token)
+          | (anon key or the 180-min pass)    v
+          v                               EMS API (/v1)
+    Supabase: Postgres + RLS
+    Edge fns: ems-auth (mints the pass), push-send, readings-fetch, github, calendar, transcribe ...
 ```
 
 ## Data flow
@@ -40,8 +27,8 @@ A no-framework, installable **PWA** (classic scripts in one shared global scope)
   my-tasks, EMS) render from the same snapshot + localStorage fallbacks.
 - **Writes:** Supabase REST (`sbUpsert/sbInsert/sbDelete`) with a **dynamic auth header**
   (`baseH()`): authenticated bridge token if active & unexpired, else the public anon key.
-- **EMS / voice / calendar:** still go through Apps Script (`type:'ems'|'transcribe'|'parseRequest'`)
-  — the data fetch-router leaves those POSTs on Apps Script untouched.
+- **EMS / voice / calendar:** the EMS API is called directly with the user's token; voice and
+  calendar go through their Edge Functions (`transcribe`, `calendar`).
 
 ## Module model
 
@@ -53,8 +40,8 @@ filename prefix (`01-`…`16-`). See [modules.md](modules.md).
 ## PWA
 
 - `manifest.webmanifest` + icons → installable; runs **standalone** (no address bar).
-- `sw.js`: **network-first** for same-origin GETs (APIs always live; offline falls back to
-  cache / `index.html`). Cross-origin (Supabase, Apps Script) bypassed entirely.
+- `sw.js`: the page and the stamped shell files (`?v=`) paint from the cache and refresh behind it;
+  other same-origin GETs are network-first (cache fallback offline). Cross-origin is bypassed; notification actions only open the app.
 - `16-install.js`: captures `beforeinstallprompt`, shows the install button, hides it when
   already standalone (iOS → manual Share-sheet instructions).
 - Cache-busting: `build.mjs` stamps `?v=<base36 time>` onto `app.js`/`app.css` each build,

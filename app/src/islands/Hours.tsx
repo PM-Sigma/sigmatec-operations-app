@@ -1,6 +1,7 @@
 // ⏱ שעות עבודה מול לקוחות — #sigma-hours, the `hours` page (עידן 22.9, E2; round 5 R-U1).
 //
-// Every `work_sessions` row in one table for עידן, עמיחי and מתניה (and the viewer, read-only):
+// `work_sessions` rows in one table: ALL rows for עידן and עמיחי (and the viewer, read-only), only his
+// OWN rows for מתניה (RLS ws_read_scoped) - and the page says "השעות שלי" for him:
 // month / person / kibbutz filters, totals, an edit sheet and a manual-add sheet for עידן and
 // עמיחי, and PDF / Excel exports of what is on screen. Every write is logged by the database
 // (db/work_sessions_log.sql — a trigger, so nothing here can forget to log).
@@ -33,7 +34,7 @@ import { sigma, useCurrentUser, useSigmaEvent } from '@/bridge';
 import { APP_PEOPLE } from '@/lib/people';
 import { fmtDuration } from '@/lib/format';
 import {
-  canEditHours, canSeeHours, durationMin, filterHours, hoursByDay, hoursPrintHtml, hoursTiles,
+  canEditHours, canSeeHours, seesOnlyOwnHours, durationMin, filterHours, hoursByDay, hoursPrintHtml, hoursTiles,
   hoursXlsxSpec, monthsOf, peopleOf, toLocalInput, validateHours,
   type HoursDraft, type WorkSessionRow,
 } from '@/lib/hours';
@@ -226,6 +227,7 @@ function HoursPage() {
   const qc = useQueryClient();
   const allowed = canSeeHours(user, isViewer);
   const editor = canEditHours(user, isViewer);
+  const ownOnly = seesOnlyOwnHours(user, isViewer);
   const q = useQuery({ queryKey: KEY, queryFn: fetchSessions, enabled: allowed });
   const rows = React.useMemo(() => q.data || [], [q.data]);
   const [month, setMonth] = React.useState<string>('');
@@ -242,7 +244,7 @@ function HoursPage() {
   const days = React.useMemo(() => hoursByDay(shown), [shown]);
   const tiles = React.useMemo(() => hoursTiles(shown), [shown]);
   const kibbutzim = React.useMemo(() => Array.from(new Set(rows.map(r => r.kibbutz || '').filter(Boolean))).sort((a, b) => a.localeCompare(b, 'he')), [rows]);
-  const title = 'שעות מול לקוחות' + (month ? ' · ' + month : '') + (person ? ' · ' + person : '');
+  const title = (ownOnly ? 'השעות שלי' : 'שעות מול לקוחות') + (month ? ' · ' + month : '') + (person ? ' · ' + person : '');
 
   const exportXlsx = React.useCallback(() => {
     const fn = (window as any).xlDownload;
@@ -273,7 +275,7 @@ function HoursPage() {
   return (
     <div className="flex flex-col gap-3 pb-4 lg:gap-4" data-testid="hours-page">
       <PageActionRow
-        title={<><Clock aria-hidden className="me-1.5 inline h-[18px] w-[18px] text-[color:var(--brand-1)]" />שעות</>}
+        title={<><Clock aria-hidden className="me-1.5 inline h-[18px] w-[18px] text-[color:var(--brand-1)]" />{ownOnly ? 'השעות שלי' : 'שעות'}</>}
         actions={<>
           {editor && (
             <BubbleButton variant="icon" aria-label="הוספה ידנית" data-testid="hours-add" onClick={() => setEditing('new')}>
@@ -288,7 +290,7 @@ function HoursPage() {
 
       <div className="flex flex-wrap items-center gap-2">
         <PickerChip label="חודש" value={month} options={months} onChange={setMonth} />
-        <PickerChip label="כל העובדים" value={person} options={peopleOf(rows)} onChange={setPerson} />
+        {!ownOnly && <PickerChip label="כל העובדים" value={person} options={peopleOf(rows)} onChange={setPerson} />}
         <PickerChip label="כל הקיבוצים" value={kib} options={kibbutzim} onChange={setKib} />
       </div>
 

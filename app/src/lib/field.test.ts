@@ -14,7 +14,7 @@ import {
   type CheckinRow, type FieldTask, type VisitRow,
 } from './field';
 import { burnLeaveItems } from './burns';
-import { missingDays } from './attendance';
+import { missingDays, missingWithPrior } from './attendance';
 
 const task = (id: string, kibbutz: string, title: string, who?: string): FieldTask => ({
   id, kibbutz, title, assignee: who ? { firstName: who } : null,
@@ -464,11 +464,11 @@ describe('dm', () => {
 
 // ───────────── ⏰ the attendance cron's two hours (spec §7h) ─────────────
 describe('eodHourFor', () => {
-  it('is 19:00 for anyone who never chose', () => {
-    expect(EOD_DEFAULT_HH).toBe(19);
-    expect(eodHourFor('אביאם', {})).toBe(19);
-    expect(eodHourFor('אביאם', null)).toBe(19);
-    expect(eodHourFor('אביאם', { אביאם: null })).toBe(19);
+  it('is 20:00 for anyone who never chose', () => {
+    expect(EOD_DEFAULT_HH).toBe(20);
+    expect(eodHourFor('אביאם', {})).toBe(20);
+    expect(eodHourFor('אביאם', null)).toBe(20);
+    expect(eodHourFor('אביאם', { אביאם: null })).toBe(20);
   });
   it('honours his own hour', () => {
     expect(eodHourFor('אביאם', { אביאם: 18, ניתאי: 21 })).toBe(18);
@@ -479,12 +479,12 @@ describe('eodHourFor', () => {
   });
   it('a value that is not an hour is not an hour', () => {
     for (const bad of [24, -1, 7.5, NaN, 'שש' as unknown as number])
-      expect(eodHourFor('אביאם', { אביאם: bad })).toBe(19);
+      expect(eodHourFor('אביאם', { אביאם: bad })).toBe(20);
   });
   it('clamped to the Settings picker range 17–20 (FIX ROUND 1, task-15 review Minor #2) — a ' +
     'stray/legacy value outside it falls back to the default instead of being honored', () => {
     for (const outside of [0, 16, 21, 23])
-      expect(eodHourFor('אביאם', { אביאם: outside })).toBe(19);
+      expect(eodHourFor('אביאם', { אביאם: outside })).toBe(20);
   });
 });
 
@@ -498,41 +498,41 @@ describe('attendanceCronRuns', () => {
     ]);
   });
 
-  it('19:00 is the evening nudge for whoever did not choose', () => {
-    expect(attendanceCronRuns(19, people, {})).toEqual([
+  it('20:00 is the evening nudge for whoever did not choose', () => {
+    expect(attendanceCronRuns(20, people, {})).toEqual([
       { person: 'אביאם', kind: 'evening' }, { person: 'ניתאי', kind: 'evening' },
     ]);
   });
 
   it('a chosen hour moves that person and nobody else', () => {
     expect(attendanceCronRuns(18, people, { אביאם: 18 })).toEqual([{ person: 'אביאם', kind: 'evening' }]);
-    expect(attendanceCronRuns(19, people, { אביאם: 18 })).toEqual([{ person: 'ניתאי', kind: 'evening' }]);
+    expect(attendanceCronRuns(20, people, { אביאם: 18 })).toEqual([{ person: 'ניתאי', kind: 'evening' }]);
   });
 
   it('any other hour has nothing to say', () => {
     expect(attendanceCronRuns(14, people, { אביאם: 18 })).toEqual([]);
-    expect(attendanceCronRuns(19, [], {})).toEqual([]);
+    expect(attendanceCronRuns(20, [], {})).toEqual([]);
   });
 
   it('a holiday silences BOTH halves (the morning nudge is a work-day nudge)', () => {
-    expect(attendanceCronRuns(19, people, {}, true)).toEqual([]);
+    expect(attendanceCronRuns(20, people, {}, true)).toEqual([]);
     expect(attendanceCronRuns(9, people, {}, true)).toEqual([]);
   });
 
   it('Friday and Saturday skip the morning run (and the evening one); Sun-Thu run', () => {
     for (const dow of [5, 6]) {
       expect(attendanceCronRuns(9, people, {}, false, dow)).toEqual([]);
-      expect(attendanceCronRuns(19, people, {}, false, dow)).toEqual([]);
+      expect(attendanceCronRuns(20, people, {}, false, dow)).toEqual([]);
     }
     for (const dow of [0, 1, 2, 3, 4]) expect(attendanceCronRuns(9, people, {}, false, dow)).toHaveLength(2);
   });
 
-  it('a stored hour outside the 17–20 picker range falls back to the 19:00 default ' +
+  it('a stored hour outside the 17–20 picker range falls back to the 20:00 default ' +
     '(FIX ROUND 1, task-15 review Minor #2 — 09:00 is no longer a reachable evening choice, ' +
     'so it can no longer collide with the fixed 09:00 morning slot)', () => {
     expect(attendanceCronRuns(9, ['אביאם'], { אביאם: 9 }))
       .toEqual([{ person: 'אביאם', kind: 'morning' }]);
-    expect(attendanceCronRuns(19, ['אביאם'], { אביאם: 9 }))
+    expect(attendanceCronRuns(20, ['אביאם'], { אביאם: 9 }))
       .toEqual([{ person: 'אביאם', kind: 'evening' }]);
   });
 });
@@ -661,21 +661,48 @@ describe('morning push: what is missing, whether to send, what it says', () => {
   const t = { y: 2026, m: 9, d: 10 };            // Thu 10.9.2026; days 1..9 are prior
   const none = new Set<string>();
   const all = ['2026-09-01', '2026-09-02', '2026-09-03', '2026-09-06', '2026-09-07', '2026-09-08', '2026-09-09'];
+  // LAST month keeps reminding (owner 23.11): the whole of August is in the window too.
+  const aug = Array.from({ length: 31 }, (_, i) => '2026-08-' + String(i + 1).padStart(2, '0'))
+    .filter(d => new Date(d + 'T00:00:00Z').getUTCDay() <= 4);
+  const augDone = new Set(aug);   // August fully filled: isolates the September behaviour below
 
   it('lists prior Sun-Thu days only, minus rows, holidays and field check-ins', () => {
-    expect(priorMissingDates(none, none, t)).toEqual(all);
-    expect(priorMissingDates(new Set(['2026-09-01']), none, t, new Set(['2026-09-02'])).slice(0, 2)).toEqual(['2026-09-03', '2026-09-06']);
-    expect(priorMissingDates(none, new Set(['2026-09-03', '2026-09-06']), t)).not.toContain('2026-09-03');
+    expect(priorMissingDates(augDone, none, t)).toEqual(all);
+    expect(priorMissingDates(new Set([...augDone, '2026-09-01']), none, t, new Set(['2026-09-02'])).slice(0, 2)).toEqual(['2026-09-03', '2026-09-06']);
+    expect(priorMissingDates(augDone, new Set(['2026-09-03', '2026-09-06']), t)).not.toContain('2026-09-03');
+  });
+
+  it('last month stays in the list until it is filled; this month starts the day after', () => {
+    expect(priorMissingDates(none, none, t)).toEqual([...aug, ...all]);
+    expect(priorMissingDates(new Set(aug.slice(1)), none, t, new Set(all))).toEqual([aug[0]]);
+    // January looks back into December of the year before
+    const jan = priorMissingDates(none, none, { y: 2027, m: 1, d: 5 });
+    expect(jan[0]).toBe('2026-12-01');
+    expect(jan[jan.length - 1]).toBe('2027-01-04');
   });
 
   it('a field check-in day is NOT missing, and the screen (missingDays) agrees day for day', () => {
     const rows = [{ date: '2026-09-01', type: 'office' as const }];
     const field = new Set(['2026-09-02', '2026-09-07']);
     const holiday = [{ date: '2026-09-08', name: 'x', kind: 'holiday' as const, required: false }];
-    const push = priorMissingDates(new Set(['2026-09-01']), field, t, new Set(['2026-09-08']));
+    const push = priorMissingDates(new Set([...augDone, '2026-09-01']), field, t, new Set(['2026-09-08']));
     const screen = missingDays(rows, holiday, new Date(2026, 8, 10), 2026, 9, field);
     expect(push).toEqual(screen);
     expect(push).not.toContain('2026-09-02');
+  });
+
+  it('the screen list (missingWithPrior: last month + this month) equals the push list, day for day', () => {
+    const augRows = [{ date: '2026-08-04', type: 'office' as const }, { date: '2026-08-05', type: 'field' as const }];
+    const sepRows = [{ date: '2026-09-01', type: 'office' as const }];
+    const field = new Set(['2026-08-10', '2026-09-07']);
+    const hol = [{ date: '2026-08-12', name: 'x', kind: 'holiday' as const, required: false }];
+    const push = priorMissingDates(new Set(['2026-08-04', '2026-08-05', '2026-09-01']), field, t, new Set(['2026-08-12']));
+    const screen = missingWithPrior((_y, m) => (m === 8 ? augRows : sepRows), hol, new Date(2026, 8, 10), field);
+    expect(screen).toEqual(push);
+    expect(screen[0]).toBe('2026-08-02');
+    expect(screen).not.toContain('2026-08-12');
+    // a month whose rows are not loaded yet contributes nothing, never "everything missing"
+    expect(missingWithPrior(() => null, hol, new Date(2026, 8, 10), field)).toEqual([]);
   });
 
   it('change detection: send when the list differs, skip when identical, Sundays always remind', () => {

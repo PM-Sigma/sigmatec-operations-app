@@ -8,10 +8,10 @@
 //
 // Everything in this file is a plain function over plain rows — no React, no DOM, no
 // network — so every rule is covered by goldens (burns.test.ts) and the components stay
-// rendering shells. The legacy full-table screen (js/src/24-meter-burns.js) keeps its own
-// copy of the same rules in its PURE block; `test-meter-burns.mjs` covers that half.
+// rendering shells. (The legacy full-table screen js/src/24-meter-burns.js and its
+// test-meter-burns.mjs are gone; this file is the only copy of the rules.)
 
-/** The one flag. `BURNS_PROJECT_ACTIVE = false` (js/src/24-meter-burns.js) hides every
+/** The one flag. `BURNS_PROJECT_ACTIVE = false` (js/src/00-consts.js, OFF since 19.11.26) hides every
  *  surface — chip, modal section, briefing rows, strip and the full table — while the data
  *  stays in `meter_burns` for the report. Undefined (island loaded without the legacy
  *  bundle, e.g. under vitest) reads as ACTIVE, so a test has to opt out explicitly. */

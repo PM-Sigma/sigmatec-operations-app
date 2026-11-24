@@ -82,7 +82,7 @@
     if (page === 'fieldops' && !(window.sigma && window.sigma.canShowPage && window.sigma.canShowPage('fieldops'))) page = 'kibbutz'; // פעולות שטח — staff, not the viewer
     if (page === 'emsstats' && !(window.sigma && window.sigma.canShowPage && window.sigma.canShowPage('emsstats'))) page = 'kibbutz'; // סטטיסטיקת EMS — עידן + עמיחי
     if (page === 'readings' && !(window.sigma && window.sigma.canShowPage && window.sigma.canShowPage('readings'))) page = 'kibbutz'; // 📥 משיכת קריאות — עידן/עמיחי/מתניה
-    if (page === 'hours' && !(window.sigma && window.sigma.canShowPage && window.sigma.canShowPage('hours'))) page = 'kibbutz'; // ⏱ שעות — עידן/עמיחי/מתניה + viewer
+    if (page === 'hours' && !(window.sigma && window.sigma.canShowPage && window.sigma.canShowPage('hours'))) page = 'kibbutz'; // ⏱ שעות — עידן/עמיחי (all rows), מתניה (own rows only, RLS) + viewer
     // The viewer (reports user) has NO קיבוצים page (עידן 12.10): every route to it — a deep link, the Σ home, ← חזרה,
     // or any gate's fallback above — lands on his reports hub. Staff never see 'reports' (it is the viewer's home).
     var _viewer = typeof isViewer === 'function' && isViewer();
