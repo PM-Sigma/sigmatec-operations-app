@@ -16,6 +16,7 @@ import { sigma } from '@/bridge';
 import { track } from './track';
 import { queryClient } from './query';
 import { CERT_LOGO } from './certLogo';
+import { stockOn } from './stockSwitch';
 import {
   type Movement, type OrderLike, type ProductRow, type ReqLike, type Ctx, type SaveCtx,
   type OrderDraft, type StatusPlan, type ApprovalPlan, type ReturnLike, type DeletePreview,
@@ -170,8 +171,10 @@ export async function saveOrder(draft: OrderDraft, data: InvData, me: string): P
   const ctx: SaveCtx = {
     catalog: data.products.filter(p => p.active).map(p => p.name),
     movements: data.movements, requirements: data.requirements, me,
+    enforced: stockOn(),
   };
   const plan = orderSavePlan(draft, ctx);
+  if (plan.warnings?.length) { try { sigma?.toast?.(plan.warnings[0]); } catch { /* no bridge */ } }
   if (plan.errors.length) throw new Error(plan.errors.join('\n'));
 
   const sb = await getSupabase();
@@ -409,7 +412,7 @@ export async function issueCert(
     catch { /* Drive-archive snapshot, best-effort */ }
   }
   if (number && draft.reissueOf) {
-    try { await cancelCert(draft.reissueOf.id, number); } catch { /* the old cert stays active, cancellable from the tab */ }
+    try { await cancelCert(draft.reissueOf.id, number, cert.refId); } catch { /* the old cert stays active, cancellable from the tab */ }
   }
   if (number && cert.source === 'ems' && cert.refId) {
     try {
@@ -426,11 +429,22 @@ export async function issueCert(
   return { number, id };
 }
 
-export async function cancelCert(id: string, replacedBy?: number): Promise<void> {
+export async function cancelCert(id: string, replacedBy?: number, refId?: string): Promise<void> {
   const patch: Record<string, unknown> = { status: 'cancelled' };
   if (replacedBy) patch.replaced_by = replacedBy;
   await sbWrite(async s => await s.from('delivery_certs').update(patch).eq('id', id));
+  // the legacy "already issued for this visit" cache (js/src/20-delivery-cert.js certCancel does the same)
+  try { if (refId) delete (window as any)._certIssuedFor?.[refId]; } catch { /* no window */ }
   afterWrite('cert-cancel');
+}
+
+/** markCertSent: stamp sent_at/sent_to when the technician taps mail / WhatsApp. Best-effort —
+ * a tap is not proof of delivery, and a missing column (db/delivery_certs_sent.sql not applied) must never block sending. */
+export async function markCertSent(id: string, to: string): Promise<void> {
+  try {
+    await sbWrite(async s => await s.from('delivery_certs').update({ sent_at: nowISO(), sent_to: to }).eq('id', id));
+    void queryClient.invalidateQueries({ queryKey: INV_KEYS.all });
+  } catch { /* best-effort */ }
 }
 
 // ───────────────────────────── contacts + kibbutz details ─────────────────────────────

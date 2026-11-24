@@ -11,7 +11,8 @@ import { ListRow } from '@/components/ui/list-row';
 import { PageActionRow } from '@/components/ui/page-action-row';
 import { SectionBlock } from '@/components/ui/section-block';
 import { sigma, useCurrentUser } from '@/bridge';
-import { certRange, certSearch, CERT_SOURCE_LABEL, type CertRow as CertRowType } from '@/lib/inventory';
+import { certRange, certSearch, certSentLabel, CERT_SOURCE_LABEL, type CertRow as CertRowType } from '@/lib/inventory';
+import { ConfirmSheet } from '@/components/ui/confirm-sheet';
 import { fetchCerts, cancelCert, INV_KEYS, type CertRow } from '@/lib/inventoryApi';
 import { openCertEvent } from './InventoryCert';
 import { toastFailure } from '@/lib/pending';
@@ -27,13 +28,14 @@ function todayYmd(): string { return new Date().toISOString().slice(0, 10); }
 export function InventoryCertsTab() {
   const user = useCurrentUser();
   const qc = useQueryClient();
-  const [range, setRange] = React.useState<RangeKey>('all');
+  const [range, setRange] = React.useState<RangeKey>('thisMonth'); // matches the month the from/to start on
   const monthDefault = React.useMemo(() => certRange('thisMonth', todayYmd()), []);
   const [from, setFrom] = React.useState(monthDefault.from);
   const [to, setTo] = React.useState(monthDefault.to);
   const [search, setSearch] = React.useState('');
   const [moreOpenId, setMoreOpenId] = React.useState<string | null>(null);
   const [pageMoreOpen, setPageMoreOpen] = React.useState(false);
+  const [cancelTarget, setCancelTarget] = React.useState<CertRow | null>(null);
 
   const certsQ = useQuery({ queryKey: INV_KEYS.certs(from, to), queryFn: () => fetchCerts(from, to) });
   const certs = (certsQ.data || []) as CertRow[];
@@ -65,10 +67,11 @@ export function InventoryCertsTab() {
       },
     });
   }
+  function askCancel(c: CertRow) { setMoreOpenId(null); setCancelTarget(c); }
   async function doCancel(c: CertRow) {
-    setMoreOpenId(null);
+    setCancelTarget(null);
     try {
-      await cancelCert(c.id);
+      await cancelCert(c.id, undefined, (c as any).ref_id);
       toast.success('התעודה בוטלה');
       void qc.invalidateQueries({ queryKey: INV_KEYS.all });
     } catch (e: any) {
@@ -161,6 +164,9 @@ export function InventoryCertsTab() {
                       <Tag role="info">{CERT_SOURCE_LABEL[anyc.source] || anyc.source}</Tag>
                       {anyc.signature && <Tag role="ok">נחתם</Tag>}
                       {cancelled && <Tag role="danger">בוטלה</Tag>}
+                      {!cancelled && certSentLabel(anyc) && (
+                        <Tag role={anyc.sent_at ? 'ok' : 'neutral'}>{certSentLabel(anyc)}</Tag>
+                      )}
                     </span>
                     {/* Designer round-3 fix: this must read as ONE inline run in RTL — no
                         nbsp, no flex/gap sibling splitting the number into its own box;
@@ -191,7 +197,7 @@ export function InventoryCertsTab() {
                             <button type="button" data-testid={`inv-cert-reissue-${anyc.cert_number}`} onClick={() => openReissue(c)}
                               className="block w-full rounded-lg px-2 py-2 text-start text-[13px] font-semibold">הפקה מתוקנת</button>
                             {!cancelled && (
-                              <button type="button" data-testid={`inv-cert-cancel-${anyc.cert_number}`} onClick={() => void doCancel(c)}
+                              <button type="button" data-testid={`inv-cert-cancel-${anyc.cert_number}`} onClick={() => askCancel(c)}
                                 className="block w-full rounded-lg px-2 py-2 text-start text-[13px] font-semibold text-[var(--danger-ink)]">ביטול</button>
                             )}
                           </>
@@ -208,6 +214,15 @@ export function InventoryCertsTab() {
       <div className="px-1 text-[13px] font-bold text-muted-foreground">
         <bdi>{certs.length}</bdi> תעודות · <bdi>{activeCount}</bdi> פעילות
       </div>
+      <ConfirmSheet
+        open={!!cancelTarget}
+        title="לבטל את התעודה?"
+        lines={cancelTarget ? [`תעודה מס' ${(cancelTarget as any).cert_number} · ${(cancelTarget as any).customer?.name || (cancelTarget as any).kibbutz || ''}`, 'התעודה תישאר ברישום כמבוטלת ולא תיספר בדוחות'] : []}
+        confirmLabel="ביטול התעודה"
+        danger
+        onConfirm={() => cancelTarget ? doCancel(cancelTarget) : undefined}
+        onOpenChange={o => { if (!o) setCancelTarget(null); }}
+      />
     </div>
   );
 }

@@ -624,6 +624,10 @@
           return (s && s.companyTasks) || null;
         } catch (e) { return null; }
       },
+      // The inventory switch (settings row stock_enforced). Missing row = on; the rule lives in SigmaInv.stockEnforced.
+      stockEnforced: function () {
+        try { return SigmaInv.stockEnforced((window.SHEET_DATA && window.SHEET_DATA.settings) || {}); } catch (e) { return true; }
+      },
       staffSendMessage: function (toPerson, text) {
         var f = fn('staffSendMessage');
         if (!f) return Promise.reject(new Error('messaging unavailable'));

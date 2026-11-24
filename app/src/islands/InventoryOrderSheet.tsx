@@ -10,6 +10,7 @@ import {
   Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle,
 } from '@/components/ui/sheet';
 import { useCurrentUser } from '@/bridge';
+import { stockOn } from '@/lib/stockSwitch';
 import { useInventory, saveOrder, approveOrder, parseOrderText, type InvData } from '@/lib/inventoryApi';
 import {
   orderFormFields, newItemRow, editStatusOptions, canApproveThisOrder, approvalPlan, poolStock,
@@ -336,7 +337,7 @@ export function OrderSheet({ open, onOpenChange, order, defaultType = 'supplier'
                   + הוספת שורה
                 </button>
                 {unknownNames.length > 0 && (
-                  <div className="mt-2 rounded-xl bg-[var(--danger-fill)] p-2 text-[13px] text-[var(--danger-ink)]">
+                  <div className={stockOn() ? 'mt-2 rounded-xl bg-[var(--danger-fill)] p-2 text-[13px] text-[var(--danger-ink)]' : 'mt-2 rounded-xl bg-[var(--warn-fill)] p-2 text-[13px] text-[var(--warn-ink)]'}>
                     פריטים שלא בקטלוג: {unknownNames.join(', ')}.
                     <button type="button" data-testid="os-remove-unknown" onClick={removeUnknown} className="ms-2 font-bold underline">הסרת השורות</button>
                   </div>

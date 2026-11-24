@@ -25,28 +25,11 @@
   window.maybeShowAmichaiApprovalReminder = maybeShowAmichaiApprovalReminder;
   window.maybeShowOrderNotifications = maybeShowOrderNotifications;
 
-  // ===== Low-stock "red line" ===== (08-inventory.js:18-87, moved verbatim)
-  const METER_RULES = [
-    { label: 'מונה Landis+Gyr E360PP', match: '360PP', min: 15 },
-    { label: 'מונה Landis+Gyr E360SP', match: '360SP', min: 15 },
-    { label: 'מונה E360CT', match: '360CT', min: 15 },
-    { label: 'מונה E570',   match: 'E570',  min: 10 },
-    { label: 'מונה PM135',  match: 'PM135',  min: 5  },
-  ];
-  // round 5 Phase 1: SIM is retired (items archived, no low-stock alert — עידן 23.9). SIM_MIN
-  // and the per-type sims[] report are gone; meters keep their own company-wide red line.
+  // ===== Low-stock "red line" ===== (rule + red lines + the stock_enforced switch live in app/src/lib/inventory.ts → SigmaInv; one copy)
+  // round 5 Phase 1: SIM is retired (no low-stock alert — עידן 23.9). Switch off (settings.stock_enforced=false) → empty.
   function lowStockReport() {
-    // Company-wide means THE POOL now — what a kibbutz already holds is not our shortage.
-    const companyTotal = poolStockMap();
-    // Meters — company-wide, bucketed by rule.match (dedups name variants)
-    const meters = METER_RULES.map(rule => {
-      let total = 0, found = false;
-      Object.entries(companyTotal).forEach(([p, q]) => {
-        if (p.indexOf('מונה') === 0 && p.indexOf(rule.match) !== -1) { total += q; found = true; }
-      });
-      return { label: rule.label, match: rule.match, total, min: rule.min, found };
-    }).filter(m => m.found && m.total < m.min);
-    return { meters };
+    const on = !(window.sigma && window.sigma.stockEnforced) || window.sigma.stockEnforced();
+    return SigmaInv.lowStockReport(poolStockMap(), on);
   }
   // Renders the red-line alert: a "company task" line for the company-wide meter shortages
   // (visible to all), plus a main-page banner whose content depends on who's logged in.

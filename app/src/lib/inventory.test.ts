@@ -12,7 +12,7 @@ import {
   amichaiPending, approvalPlan, canApproveThisOrder, canMarkStuck, distinctSuppliers,
   editStatusOptions, freshApprovedOrders, isDirectSupply, orderFormFields, orderKibbutz,
   orderSavePlan, orderStatusPlan, orderType, quickAction, restockPlan, approvalWaitingMsg,
-  deleteSummaryLines,
+  deleteSummaryLines, stockEnforced,
 } from './inventory';
 import goldens from './__fixtures__/inventory/legacy-goldens.json';
 import fx from './__fixtures__/inventory/ledgers.json';
@@ -511,5 +511,31 @@ describe('deleteSummaryLines (D1-D5, binding update: issued certs stay exactly a
       visits_trimmed: 0, requirements_trimmed: 0, requirements_deleted: 0,
       returns: 0, recounts: 0, alerts: 0, parse_examples: 0, fingerprint: 'x',
     })).toEqual([]);
+  });
+});
+
+describe('stock_enforced switch (inventory "just works" until the stock count)', () => {
+  const low = { 'מונה E570': 1 }; // under its red line of 10
+  it('missing row / true = on; only an explicit false turns it off', () => {
+    expect(stockEnforced({})).toBe(true);
+    expect(stockEnforced(null)).toBe(true);
+    expect(stockEnforced({ stock_enforced: true })).toBe(true);
+    expect(stockEnforced({ stock_enforced: false })).toBe(false);
+    expect(stockEnforced({ stock_enforced: 'false' })).toBe(false);
+  });
+  it('lowStockReport is empty when off, unchanged when on', () => {
+    expect(lowStockReport(low).meters.length).toBe(1);
+    expect(lowStockReport(low, true).meters.length).toBe(1);
+    expect(lowStockReport(low, false)).toEqual({ meters: [] });
+  });
+  it('an off-catalog order line is a warning (not a block) when off, still a block when on', () => {
+    const base = { orderType: 'supplier' as const, supplier: 'לנדיס', createdBy: 'עמיחי', items: [{ name: 'פריט חדש', qty: 1 }] };
+    const c = { catalog: ['בקר 504'], movements: [], requirements: [], me: 'עמיחי' };
+    const on = orderSavePlan(base as any, c);
+    expect(on.errors.length).toBe(1);
+    expect(on.warnings).toBeUndefined();
+    const off = orderSavePlan(base as any, { ...c, enforced: false });
+    expect(off.errors).toEqual([]);
+    expect(off.warnings?.[0]).toContain('פריט חדש');
   });
 });

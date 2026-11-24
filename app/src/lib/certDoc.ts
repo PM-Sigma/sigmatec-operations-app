@@ -151,6 +151,12 @@ export function certRange(range: 'all' | 'thisMonth' | 'lastMonth' | 'last7' | '
   return { from: '2000-01-01', to: '2099-01-01' };
 }
 
+/** The tag text for the certs list; null when the `sent_at` column isn't there yet (SQL not applied). */
+export function certSentLabel(row: { sent_at?: string | null }, hasColumn = 'sent_at' in row): string | null {
+  if (!hasColumn) return null;
+  return row.sent_at ? 'נשלחה ✓ ' + String(row.sent_at).slice(0, 10).split('-').reverse().join('/') : 'לא נשלחה';
+}
+
 /** certSearch: the registry's free-text filter over kibbutz / customer name / cert number. */
 export function certSearch<T extends { kibbutz?: string; customer?: { name?: string }; cert_number: number }>(rows: T[], q: string): T[] {
   const query = q.trim();

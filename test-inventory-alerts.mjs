@@ -126,6 +126,19 @@ console.log('\n[6] the islands are wired');
   check('nobody is told who else sees his data', whoSees.length === 0, whoSees.join(' | '));
 }
 
+// ── the stock_enforced switch (db/inventory_stock_enforced.sql): off = no alert can fire, from any path ──
+{
+  const sw = read('./db/inventory_stock_enforced.sql');
+  check('switch SQL inserts stock_enforced=false without overwriting a later flip',
+    /insert into public\.settings[\s\S]*'stock_enforced', 'false'::jsonb[\s\S]*on conflict \(key\) do nothing/.test(sw));
+  check('switch SQL has BACKUP/ROLLBACK notes', /ROLLBACK/.test(sw) && /BACKUP/.test(sw));
+  const guard = /from settings s where s\.key = 'stock_enforced'[\s\S]{0,40}return new;/;
+  check('the trigger function returns early when off (new function body)', guard.test(sw));
+  check('...and so does db/inventory_pool_v2.sql, so re-running it cannot re-arm alerts', guard.test(read('./db/inventory_pool_v2.sql')));
+  check('legacy lowStockReport delegates to SigmaInv with the switch (one rule)',
+    /SigmaInv\.lowStockReport\(poolStockMap\(\), on\)/.test(read('./js/src/06-inventory.js')));
+}
+
 console.log('\n' + '─'.repeat(60));
 if (failures) { console.log(`FAILED  ${failures} check(s)`); process.exit(1); }
 console.log('PASSED  inventory alerts contract sweep');
