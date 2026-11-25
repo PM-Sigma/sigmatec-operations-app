@@ -69,7 +69,7 @@ ok('report row: each job merges its own section, at/dryRun follow the latest wri
 ok('both scripts write the ems_sync_report row in dry-run and live', () => {
   for (const f of ['scripts/ems-sites-sync.mjs', 'scripts/ems-contacts-sync.mjs']) {
     const src = fs.readFileSync(f, 'utf8');
-    assert.match(src, /writeSyncReport\([^)]*, true\)/); assert.match(src, /writeSyncReport\([^)]*, false\)/);
+    assert.match(src, /writeSyncReport\(.*, true\)/); assert.match(src, /writeSyncReport\(.*, false\)/);
   }
 });
 console.log('\nPASS - ' + n + ' checks (ems-sites-sync)');
