@@ -113,6 +113,35 @@ export async function sbReq(sbUrl, sbAnon, pass, method, path, body) {
   return method === 'GET' ? res.json() : null;
 }
 
+/** CI logs of this PUBLIC repo carry counts only; details go to the settings row below. Local runs print everything. */
+export const inCI = () => !!process.env.CI;
+
+/**
+ * PURE: merge one job's section into the shared report value (the two jobs run apart and each owns one key).
+ * `at` / `dryRun` always describe the latest writer.
+ */
+export function mergeReport(existing, name, section, dryRun, at = new Date().toISOString()) {
+  const base = existing && typeof existing === 'object' && !Array.isArray(existing) ? existing : {};
+  return { ...base, at, dryRun: !!dryRun, [name]: section };
+}
+
+/**
+ * Upsert settings key 'ems_sync_report' (names / details for the owner, not for the public log). Never throws:
+ * a dry run's ONLY write is this row, and a failure here must not fail the sync - returns true/false.
+ */
+export async function writeSyncReport(sbUrl, sbAnon, pass, name, section, dryRun) {
+  try {
+    const rows = await sbReq(sbUrl, sbAnon, pass, 'GET', 'settings?select=value&key=eq.ems_sync_report');
+    const value = mergeReport(rows && rows[0] && rows[0].value, name, section, dryRun);
+    const res = await fetch(sbUrl + '/rest/v1/settings?on_conflict=key', {
+      method: 'POST',
+      headers: { apikey: sbAnon, Authorization: 'Bearer ' + pass, 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=minimal' },
+      body: JSON.stringify({ key: 'ems_sync_report', value, updated_at: value.at }),
+    });
+    return res.ok;
+  } catch { return false; }
+}
+
 export async function main(argv = process.argv.slice(2), root = ROOT) {
   const dryRun = argv.includes('--dry-run') || argv.includes('-n');
   const fxIdx = argv.indexOf('--fixture');
@@ -138,10 +167,14 @@ export async function main(argv = process.argv.slice(2), root = ROOT) {
     report.fetchedUsers = users.length;
     if (!safe) report.warning = 'deactivations skipped: the crawl found under half of the stored EMS contacts';
     const c = { ...counts(plan, existing), deactivate: safe ? plan.deactivate.length : 0 };
-    if (dryRun) return done(EXIT.OK, { ...c, note: 'dry run - nothing written' });
+    if (dryRun) {
+      report.reportWritten = await writeSyncReport(sbUrl, sbAnon, pass, 'contacts', c, true);
+      return done(EXIT.OK, { ...c, note: 'dry run - only the ems_sync_report settings row is written' });
+    }
     if (plan.insert.length) await sbReq(sbUrl, sbAnon, pass, 'POST', 'site_contacts', plan.insert);
     for (const u of plan.update) await sbReq(sbUrl, sbAnon, pass, 'PATCH', 'site_contacts?id=eq.' + u.id, u.patch);
     if (safe) for (const id of plan.deactivate) await sbReq(sbUrl, sbAnon, pass, 'PATCH', 'site_contacts?id=eq.' + id, { active: false });
+    report.reportWritten = await writeSyncReport(sbUrl, sbAnon, pass, 'contacts', c, false);
     return done(EXIT.OK, c);
   } catch (e) {
     return done(e.code || EXIT.UNEXPECTED, { error: String((e && e.message) || e) });

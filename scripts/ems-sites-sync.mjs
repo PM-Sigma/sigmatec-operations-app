@@ -9,12 +9,12 @@
 // "new" section (name = EMS site name, ems_site_ids = [id], created_by 'EMS sync'; region stays empty for the owner).
 // A site whose name resembles an existing card (equal / contained, ignoring punctuation) is NOT created: it is
 // printed as a possible link, so no duplicate card and no auto-link. Existing cards are never edited or deleted.
-// Auth is the same as the contacts job: EMS sign-in -> ems-auth -> authenticated pass (no service key anywhere).
+// CI logs (public repo) print counts only; names go to settings.ems_sync_report. Auth is the same as the contacts job: EMS sign-in -> ems-auth -> authenticated pass (no service key anywhere).
 import { pathToFileURL } from 'node:url';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { EXIT, ROOT, emsLogin, hasCredentials, loadConfig, mintSupabasePass, readClientConstants } from './ems-cache-refresh.mjs';
-import { getJson, sbReq } from './ems-contacts-sync.mjs';
+import { getJson, inCI, sbReq, writeSyncReport } from './ems-contacts-sync.mjs';
 
 export const MAX_CREATE = 15; // a run that wants more is a bug or a scoping glitch, not 16 real new sites
 
@@ -50,7 +50,11 @@ export async function main(argv = process.argv.slice(2), root = ROOT) {
   const fx = fxIdx >= 0 ? argv[fxIdx + 1] : '';
   const report = { mode: fx ? 'fixture' : dryRun ? 'dry-run' : 'live' };
   const done = (code, extra) => { console.log(JSON.stringify({ ...report, ...extra, exit: code })); return code; };
-  const view = (p, emsSites) => ({ emsSites: emsSites.length, knownIds: p.known, create: p.create.length, wouldCreate: p.create.map(r => r.name), possibleLinks: p.possibleLinks });
+  // CI (public log): counts only. Locally: names too. The names always go to the settings row (live and dry run).
+  const view = (p, emsSites) => ({ emsSites: emsSites.length, knownIds: p.known, create: p.create.length, possibleLinks: p.possibleLinks.length,
+    ...(inCI() ? {} : { wouldCreate: p.create.map(r => r.name), possibleLinkNames: p.possibleLinks }) });
+  const section = (p, emsSites) => ({ emsSites: emsSites.length, knownIds: p.known, created: p.create.map(r => r.name),
+    possibleLinks: p.possibleLinks.flatMap(l => l.cards.map(card => ({ site: l.site, card }))) });
   try {
     if (fx) {
       const f = JSON.parse(readFileSync(resolve(root, fx), 'utf8'));
@@ -68,8 +72,12 @@ export async function main(argv = process.argv.slice(2), root = ROOT) {
     const plan = sitesSyncPlan(list, kibbutzim);
     const v = view(plan, list);
     if (plan.create.length > MAX_CREATE) return done(EXIT.CONFIG, { ...v, wouldCreate: undefined, error: 'refusing to create more than ' + MAX_CREATE + ' cards in one run' });
-    if (dryRun) return done(EXIT.OK, { ...v, note: 'dry run - nothing written' });
+    if (dryRun) {
+      report.reportWritten = await writeSyncReport(sbUrl, sbAnon, pass, 'sites', section(plan, list), true);
+      return done(EXIT.OK, { ...v, note: 'dry run - only the ems_sync_report settings row is written' });
+    }
     if (plan.create.length) await sbReq(sbUrl, sbAnon, pass, 'POST', 'kibbutzim', plan.create);
+    report.reportWritten = await writeSyncReport(sbUrl, sbAnon, pass, 'sites', section(plan, list), false);
     return done(EXIT.OK, v);
   } catch (e) {
     return done(e.code || EXIT.UNEXPECTED, { error: String((e && e.message) || e) });

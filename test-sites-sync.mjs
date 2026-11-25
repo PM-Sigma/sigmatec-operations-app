@@ -2,6 +2,8 @@
 //   node test-sites-sync.mjs
 import assert from 'node:assert';
 import fs from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { mergeReport } from './scripts/ems-contacts-sync.mjs';
 import { sitesSyncPlan, normName, MAX_CREATE } from './scripts/ems-sites-sync.mjs';
 
 const fx = JSON.parse(fs.readFileSync('qa/fixtures/ems-sites.json', 'utf8'));
@@ -50,5 +52,24 @@ ok('workflow: daily cron + dispatch dry_run (default true), secrets only via sec
   assert.match(raw, /ems-contacts-sync\.mjs/); assert.match(raw, /ems-sites-sync\.mjs/);
   assert.doesNotMatch(raw, /SERVICE_ROLE/i);
   assert.doesNotMatch(raw, /echo[^\n]*(PASSWORD|EMAIL)/);
+});
+ok('CI log is counts only (no site names); a local run still prints names', () => {
+  const run = env => JSON.parse(execFileSync(process.execPath, ['scripts/ems-sites-sync.mjs', '--fixture', 'qa/fixtures/ems-sites.json'], { env: { ...process.env, ...env } }).toString());
+  const ci = run({ CI: 'true' });
+  assert.strictEqual(ci.create, 1); assert.strictEqual(ci.possibleLinks, 3);
+  assert.ok(!JSON.stringify(ci).includes('צמח') && !JSON.stringify(ci).includes('דגניה'));
+  const local = run({ CI: '' });
+  assert.deepStrictEqual(local.wouldCreate, ['צמח מפעלים']);
+});
+ok('report row: each job merges its own section, at/dryRun follow the latest writer', () => {
+  const a = mergeReport(null, 'contacts', { insert: 1 }, true, 't1');
+  const b = mergeReport(a, 'sites', { created: ['x'] }, false, 't2');
+  assert.deepStrictEqual(b, { at: 't2', dryRun: false, contacts: { insert: 1 }, sites: { created: ['x'] } });
+});
+ok('both scripts write the ems_sync_report row in dry-run and live', () => {
+  for (const f of ['scripts/ems-sites-sync.mjs', 'scripts/ems-contacts-sync.mjs']) {
+    const src = fs.readFileSync(f, 'utf8');
+    assert.match(src, /writeSyncReport\([^)]*, true\)/); assert.match(src, /writeSyncReport\([^)]*, false\)/);
+  }
 });
 console.log('\nPASS - ' + n + ' checks (ems-sites-sync)');

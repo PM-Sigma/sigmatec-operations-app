@@ -1,8 +1,8 @@
 # EMS → app sync in the cloud (Sigmatec Ops): (1) site contacts → site_contacts, (2) new EMS sites → "new" kibbutz cards.
 # Scripts: scripts/ems-contacts-sync.mjs, scripts/ems-sites-sync.mjs (both idempotent, so a repeated or late fire is harmless).
 #
-# ⚠ PUBLIC REPO: this log is world-readable. The scripts print counts (and new-site / possible-link NAMES, which are
-# kibbutz names already in this repo) — never user names, emails or phones; no artifacts.
+# ⚠ PUBLIC REPO: this log is world-readable. In CI the scripts print COUNTS only; names / details go to the
+# settings row 'ems_sync_report' (written by dry runs too — its upsert is a dry run's only write). No artifacts.
 # Secrets (the ONLY credentials; no Supabase service key lives in GitHub — the scripts use the EMS sign-in →
 # ems-auth → authenticated pass, exactly like scripts/ems-cache-refresh.mjs):
 #   EMS_SYNC_EMAIL / EMS_SYNC_PASSWORD  an EMS ADMIN account with no 2FA and NO "current site" (the contacts job refuses otherwise)
