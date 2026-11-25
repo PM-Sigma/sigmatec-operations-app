@@ -78,7 +78,7 @@ export function deactivationSafe(plan, existing) {
 }
 
 // ───────────────────────────── network ─────────────────────────────
-async function getJson(url, headers) {
+export async function getJson(url, headers) {
   const u = new URL(url);
   const res = await fetch(url, { headers });
   if (res.status === 401) throw Object.assign(new Error('401 from ' + u.host + ' - token invalid/expired'), { code: EXIT.LOGIN });
@@ -103,7 +103,7 @@ export async function emsFetchContactUsers(base, token) {
   return out;
 }
 
-async function sbReq(sbUrl, sbAnon, pass, method, path, body) {
+export async function sbReq(sbUrl, sbAnon, pass, method, path, body) {
   const res = await fetch(sbUrl + '/rest/v1/' + path, {
     method,
     headers: { apikey: sbAnon, Authorization: 'Bearer ' + pass, 'Content-Type': 'application/json', Prefer: 'return=minimal' },

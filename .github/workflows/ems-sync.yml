@@ -1,0 +1,67 @@
+# EMS → app sync in the cloud (Sigmatec Ops): (1) site contacts → site_contacts, (2) new EMS sites → "new" kibbutz cards.
+# Scripts: scripts/ems-contacts-sync.mjs, scripts/ems-sites-sync.mjs (both idempotent, so a repeated or late fire is harmless).
+#
+# ⚠ PUBLIC REPO: this log is world-readable. The scripts print counts (and new-site / possible-link NAMES, which are
+# kibbutz names already in this repo) — never user names, emails or phones; no artifacts.
+# Secrets (the ONLY credentials; no Supabase service key lives in GitHub — the scripts use the EMS sign-in →
+# ems-auth → authenticated pass, exactly like scripts/ems-cache-refresh.mjs):
+#   EMS_SYNC_EMAIL / EMS_SYNC_PASSWORD  an EMS ADMIN account with no 2FA and NO "current site" (the contacts job refuses otherwise)
+# Switch: the daily schedule stays OFF until the repo variable EMS_SYNC_ENABLED=true (set it after the dry run passes).
+name: EMS sync — contacts + new sites
+
+on:
+  schedule:
+    # 05:30 Israel in summer (UTC+3) / 04:30 in winter, plus one hour later as a backup for GitHub's late/skipped fires.
+    - cron: '30 2 * * *'
+    - cron: '30 3 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run: read EMS + the app, print what would change, write nothing'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ems-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Schedule gate
+        if: github.event_name == 'schedule'
+        env:
+          ENABLED: ${{ vars.EMS_SYNC_ENABLED }}
+        run: |
+          if [ "$ENABLED" != "true" ]; then echo "Schedule disabled (EMS_SYNC_ENABLED != true)."; echo "SKIP=1" >> "$GITHUB_ENV"; fi
+
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        if: env.SKIP != '1'
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        if: env.SKIP != '1'
+        with:
+          node-version: '22'
+
+      - name: Contacts (EMS site/operations managers → site_contacts)
+        if: env.SKIP != '1'
+        env:
+          EMS_EMAIL: ${{ secrets.EMS_SYNC_EMAIL }}
+          EMS_PASSWORD: ${{ secrets.EMS_SYNC_PASSWORD }}
+          DRY: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '--dry-run' || '' }}
+        run: node scripts/ems-contacts-sync.mjs $DRY
+
+      - name: New sites (EMS sites with no app card → "new" cards)
+        if: ${{ !cancelled() && env.SKIP != '1' }}
+        env:
+          EMS_EMAIL: ${{ secrets.EMS_SYNC_EMAIL }}
+          EMS_PASSWORD: ${{ secrets.EMS_SYNC_PASSWORD }}
+          DRY: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '--dry-run' || '' }}
+        run: node scripts/ems-sites-sync.mjs $DRY

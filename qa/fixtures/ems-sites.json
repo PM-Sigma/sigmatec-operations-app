@@ -1,0 +1,19 @@
+{
+  "kibbutzim": [
+    { "name": "גבים", "ems_site_ids": ["site-gvim"] },
+    { "name": "דגניה ב'", "ems_site_ids": [] },
+    { "name": "ארכיון", "ems_site_ids": ["site-archived"] },
+    { "name": "ניר עציון", "ems_site_ids": [] }
+  ],
+  "sites": [
+    { "id": "site-gvim", "name": "גבים", "active": true },
+    { "id": "site-archived", "name": "ארכיון", "active": true },
+    { "id": "site-new", "name": "צמח מפעלים", "active": true },
+    { "id": "site-new-dup", "name": "צמח  מפעלים", "active": true },
+    { "id": "site-off", "name": "אתר כבוי", "active": false },
+    { "id": "site-dag", "name": "דגניה ב", "active": true },
+    { "id": "site-nir", "name": "ניר עציון - מפעל", "active": true },
+    { "id": "site-short", "name": "אב", "active": true },
+    { "id": "site-blank", "name": "  ", "active": true }
+  ]
+}

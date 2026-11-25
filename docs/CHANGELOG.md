@@ -7,6 +7,15 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## 2026-11-25 - EMS sync in the cloud: contacts + new sites (branch feat/emssync)
+- **Why:** the contacts sync needed the office PC, and sites the owner opens in EMS (e.g. "צמח מפעלים") never reached the app.
+- **What:** `.github/workflows/ems-sync.yml` runs daily (02:30 + 03:30 UTC = 05:30 Israel; both fires are harmless, the scripts are idempotent) and on `workflow_dispatch` (input `dry_run`, default true; scheduled runs are live). Step 1 `scripts/ems-contacts-sync.mjs` (unchanged logic, 2 helpers now exported), step 2 NEW `scripts/ems-sites-sync.mjs`: every ACTIVE EMS site whose id is in no `kibbutzim.ems_site_ids` (archived cards count as known) becomes a card `section='new'`, `kind='kibbutz'`, `ems_site_ids=[id]`, `created_by='EMS sync'`, region empty (owner sets it). A site whose name equals/contains/is contained in an existing card name (punctuation ignored) is printed as a possible link, never created or auto-linked. Existing cards are never edited or deleted; > 15 creations in one run is refused. `--dry-run` writes nothing.
+- **Auth:** no service key. Same EMS sign-in -> `ems-auth` -> authenticated pass as `ems-cache-refresh` (RLS lets `authenticated` insert `kibbutzim`, `site_contacts`). The EMS account must be an admin (`GET /v1/sites` is unscoped only for admins), without 2FA and without a `currentSite` (contacts job refuses otherwise).
+- **Secrets / variable (set by the owner):** `EMS_SYNC_EMAIL`, `EMS_SYNC_PASSWORD`; variable `EMS_SYNC_ENABLED=true` switches the schedule on (off until then).
+- **First run:** Actions -> "EMS sync - contacts + new sites" -> Run workflow (dry_run stays ticked); read the two JSON lines in the log; then set `EMS_SYNC_ENABLED`.
+- **Rollback:** delete/disable the workflow (or unset `EMS_SYNC_ENABLED`); cards it created are `created_by='EMS sync'` (archive them in the app). No DB change.
+- **Tests:** `test-sites-sync.mjs` (plan, fixture `qa/fixtures/ems-sites.json`, workflow shape), `test-contacts-sync.mjs` still green.
+
 ## 2026-11-23 - Visit summary: 7 defects from the read-only audit (branch fix/r1-visits)
 - **Why:** an audit found lost drafts, silent stock failures and a day log that could not file equipment.
 - **1 Lost drafts:** every kibbutz draft now gets its own id (`draftIdFor`, Field.tsx openOn) instead of the page-global `visitDraftId()`; filing A can no longer discard B.
